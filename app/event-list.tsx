@@ -160,11 +160,61 @@ export default function EventList({ locale = 'nl' }: EventListProps) {
     return map;
   }, [guildSessions]);
 
-  // Sorted upcoming Convex events for the compact list
+  // Helper to construct 19:00 Brussels time ISO string for a given dateKey (YYYY-MM-DD)
+  const getBrusselsEveningIso = (dateKey: string, hour = 19, minute = 0): string => {
+    const [year, month, day] = dateKey.split('-').map(Number);
+    const d = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+    const brusselsTimeStr = d.toLocaleTimeString('en-GB', {
+      timeZone: 'Europe/Brussels',
+      hour12: false,
+      hour: '2-digit',
+    });
+    const brusselsHourAt12Utc = parseInt(brusselsTimeStr, 10);
+    const offsetHours = brusselsHourAt12Utc - 12;
+    const targetUtcHour = hour - offsetHours;
+    return new Date(Date.UTC(year, month - 1, day, targetUtcHour, minute, 0)).toISOString();
+  };
+
+  // Sorted upcoming events: combines Convex events with "Open Game Night" on Wednesdays without events
   const upcomingEvents = useMemo(() => {
     if (!futureEvents) return [];
-    return [...futureEvents].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  }, [futureEvents]);
+
+    const combined: any[] = [...futureEvents];
+
+    // Scan from startOfToday through sixMonthsLater for all Wednesdays
+    const startOfToday = new Date(nowDate);
+    startOfToday.setHours(0, 0, 0, 0);
+
+    const sixMonthsLater = new Date(startOfToday);
+    sixMonthsLater.setMonth(sixMonthsLater.getMonth() + 6);
+
+    const current = new Date(startOfToday);
+    while (current <= sixMonthsLater) {
+      const year = current.getFullYear();
+      const month = String(current.getMonth() + 1).padStart(2, '0');
+      const day = String(current.getDate()).padStart(2, '0');
+      const dateKey = `${year}-${month}-${day}`;
+
+      const dNoon = new Date(`${dateKey}T12:00:00Z`);
+      if (dNoon.getUTCDay() === 3) {
+        const eventsOnDate = eventsByDate.get(dateKey) || [];
+        if (eventsOnDate.length === 0) {
+          combined.push({
+            _id: `open-game-night-${dateKey}`,
+            slug: '',
+            title: 'Open Game Night',
+            date: getBrusselsEveningIso(dateKey, 19, 0),
+            isOpenGameNight: true,
+          });
+        }
+      }
+      current.setDate(current.getDate() + 1);
+    }
+
+    return combined.sort(
+      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+    );
+  }, [futureEvents, eventsByDate, nowDate]);
 
   // If loading
   if (futureEvents === undefined) {
@@ -183,7 +233,7 @@ export default function EventList({ locale = 'nl' }: EventListProps) {
     );
   }
 
-  if (futureEvents.length === 0 && guildSessions.length === 0) {
+  if (upcomingEvents.length === 0 && guildSessions.length === 0) {
     return null;
   }
 
@@ -210,15 +260,17 @@ export default function EventList({ locale = 'nl' }: EventListProps) {
             const dayEvents = eventsByDate.get(day.dateKey) || [];
             const daySessions = guildSessionsByDate.get(day.dateKey) || [];
             const hasConvexEvent = dayEvents.length > 0;
+            const isWednesday = new Date(`${day.dateKey}T12:00:00Z`).getUTCDay() === 3;
+            const isOpenGameNight = isWednesday && !hasConvexEvent;
             const hasGuildSession = daySessions.length > 0;
-            const hasAnyActivity = hasConvexEvent || hasGuildSession;
+            const hasAnyActivity = hasConvexEvent || isOpenGameNight || hasGuildSession;
             const firstEvent = dayEvents[0];
 
             return (
               <div
                 key={day.dateKey}
                 className={`daybox-card ${day.isToday ? 'is-today' : ''} ${
-                  hasConvexEvent
+                  hasConvexEvent || isOpenGameNight
                     ? 'daybox-highlighted'
                     : hasGuildSession
                     ? 'daybox-guild-highlighted'
@@ -252,6 +304,16 @@ export default function EventList({ locale = 'nl' }: EventListProps) {
                         </span>
                       )}
                     </Link>
+                  )}
+
+                  {isOpenGameNight && (
+                    <div
+                      className="daybox-event-badge"
+                      title="Open Game Night (19:00 - 22:00)"
+                    >
+                      <Sparkles size={11} className="badge-sparkle" />
+                      <span className="daybox-event-name">Open Game Night</span>
+                    </div>
                   )}
 
                   {/* Guild Sessions Badges */}
@@ -326,12 +388,14 @@ export default function EventList({ locale = 'nl' }: EventListProps) {
               timeZone: 'Europe/Brussels',
               month: 'short',
             });
-            const timeStr = evDate.toLocaleTimeString('en-GB', {
-              timeZone: 'Europe/Brussels',
-              hour: '2-digit',
-              minute: '2-digit',
-              hour12: false,
-            });
+            const timeStr = event.isOpenGameNight
+              ? '19:00 - 22:00'
+              : evDate.toLocaleTimeString('en-GB', {
+                  timeZone: 'Europe/Brussels',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  hour12: false,
+                });
 
             const groups = event.groups || [];
             const hasGroups = groups.length > 0;
@@ -339,12 +403,8 @@ export default function EventList({ locale = 'nl' }: EventListProps) {
               ? groups.reduce((acc: number, g: any) => acc + (g.maxSlots || 0), 0)
               : 0;
 
-            return (
-              <Link
-                key={`convex-${event._id}`}
-                href={`/event/${event.slug}`}
-                className="compact-event-row"
-              >
+            const rowContent = (
+              <>
                 {/* Date Capsule (Placed cleanly on Left) */}
                 <div className="compact-date-capsule">
                   <span className="compact-date-weekday">{weekday}</span>
@@ -356,6 +416,12 @@ export default function EventList({ locale = 'nl' }: EventListProps) {
                 <div className="compact-event-info">
                   <div className="compact-title-row">
                     <h2 className="compact-event-title">{event.title}</h2>
+                    {event.isOpenGameNight && (
+                      <span className="compact-slots-badge">
+                        <Sparkles size={12} />
+                        <span>{locale === 'nl' ? 'Vrije inloop' : 'Walk-in'}</span>
+                      </span>
+                    )}
                     {hasGroups && (
                       <span className="compact-slots-badge">
                         <Users size={12} />
@@ -378,9 +444,32 @@ export default function EventList({ locale = 'nl' }: EventListProps) {
                 </div>
 
                 {/* Arrow Icon */}
-                <div className="compact-event-arrow">
-                  <ChevronRight size={18} />
+                {!event.isOpenGameNight && (
+                  <div className="compact-event-arrow">
+                    <ChevronRight size={18} />
+                  </div>
+                )}
+              </>
+            );
+
+            if (event.isOpenGameNight) {
+              return (
+                <div
+                  key={`open-${event._id}`}
+                  className="compact-event-row compact-event-row-open"
+                >
+                  {rowContent}
                 </div>
+              );
+            }
+
+            return (
+              <Link
+                key={`convex-${event._id}`}
+                href={`/event/${event.slug}`}
+                className="compact-event-row"
+              >
+                {rowContent}
               </Link>
             );
           })}
