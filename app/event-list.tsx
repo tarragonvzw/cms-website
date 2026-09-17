@@ -160,61 +160,11 @@ export default function EventList({ locale = 'nl' }: EventListProps) {
     return map;
   }, [guildSessions]);
 
-  // Helper to construct 19:00 Brussels time ISO string for a given dateKey (YYYY-MM-DD)
-  const getBrusselsEveningIso = (dateKey: string, hour = 19, minute = 0): string => {
-    const [year, month, day] = dateKey.split('-').map(Number);
-    const d = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
-    const brusselsTimeStr = d.toLocaleTimeString('en-GB', {
-      timeZone: 'Europe/Brussels',
-      hour12: false,
-      hour: '2-digit',
-    });
-    const brusselsHourAt12Utc = parseInt(brusselsTimeStr, 10);
-    const offsetHours = brusselsHourAt12Utc - 12;
-    const targetUtcHour = hour - offsetHours;
-    return new Date(Date.UTC(year, month - 1, day, targetUtcHour, minute, 0)).toISOString();
-  };
-
-  // Sorted upcoming events: combines Convex events with "Open Game Night" on Wednesdays without events
+  // Sorted upcoming Convex events for the compact list
   const upcomingEvents = useMemo(() => {
     if (!futureEvents) return [];
-
-    const combined: any[] = [...futureEvents];
-
-    // Scan from startOfToday through sixMonthsLater for all Wednesdays
-    const startOfToday = new Date(nowDate);
-    startOfToday.setHours(0, 0, 0, 0);
-
-    const sixMonthsLater = new Date(startOfToday);
-    sixMonthsLater.setMonth(sixMonthsLater.getMonth() + 6);
-
-    const current = new Date(startOfToday);
-    while (current <= sixMonthsLater) {
-      const year = current.getFullYear();
-      const month = String(current.getMonth() + 1).padStart(2, '0');
-      const day = String(current.getDate()).padStart(2, '0');
-      const dateKey = `${year}-${month}-${day}`;
-
-      const dNoon = new Date(`${dateKey}T12:00:00Z`);
-      if (dNoon.getUTCDay() === 3) {
-        const eventsOnDate = eventsByDate.get(dateKey) || [];
-        if (eventsOnDate.length === 0) {
-          combined.push({
-            _id: `open-game-night-${dateKey}`,
-            slug: '',
-            title: 'Open Game Night',
-            date: getBrusselsEveningIso(dateKey, 19, 0),
-            isOpenGameNight: true,
-          });
-        }
-      }
-      current.setDate(current.getDate() + 1);
-    }
-
-    return combined.sort(
-      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-    );
-  }, [futureEvents, eventsByDate, nowDate]);
+    return [...futureEvents].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  }, [futureEvents]);
 
   // If loading
   if (futureEvents === undefined) {
@@ -231,10 +181,6 @@ export default function EventList({ locale = 'nl' }: EventListProps) {
         </div>
       </div>
     );
-  }
-
-  if (upcomingEvents.length === 0 && guildSessions.length === 0) {
-    return null;
   }
 
   return (
@@ -367,114 +313,89 @@ export default function EventList({ locale = 'nl' }: EventListProps) {
       </div>
 
       {/* Compact List of Upcoming Events in Next 6 Months */}
-      <div className="compact-events-section">
-        <div className="compact-events-header">
-          <span>{locale === 'nl' ? 'Evenementenkalender' : 'Schedule'}</span>
-          <span className="count-badge">{upcomingEvents.length}</span>
-        </div>
+      {upcomingEvents.length > 0 && (
+        <div className="compact-events-section">
+          <div className="compact-events-header">
+            <span>{locale === 'nl' ? 'Evenementenkalender' : 'Schedule'}</span>
+            <span className="count-badge">{upcomingEvents.length}</span>
+          </div>
 
-        <div className="compact-events-list">
-          {upcomingEvents.map((event) => {
-            const evDate = new Date(event.date);
-            const weekday = evDate.toLocaleDateString(locale === 'nl' ? 'nl-BE' : 'en-US', {
-              timeZone: 'Europe/Brussels',
-              weekday: 'short',
-            });
-            const dayNum = evDate.toLocaleDateString('default', {
-              timeZone: 'Europe/Brussels',
-              day: 'numeric',
-            });
-            const monthShort = evDate.toLocaleDateString(locale === 'nl' ? 'nl-BE' : 'en-US', {
-              timeZone: 'Europe/Brussels',
-              month: 'short',
-            });
-            const timeStr = event.isOpenGameNight
-              ? '19:00 - 22:00'
-              : evDate.toLocaleTimeString('en-GB', {
-                  timeZone: 'Europe/Brussels',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                  hour12: false,
-                });
+          <div className="compact-events-list">
+            {upcomingEvents.map((event) => {
+              const evDate = new Date(event.date);
+              const weekday = evDate.toLocaleDateString(locale === 'nl' ? 'nl-BE' : 'en-US', {
+                timeZone: 'Europe/Brussels',
+                weekday: 'short',
+              });
+              const dayNum = evDate.toLocaleDateString('default', {
+                timeZone: 'Europe/Brussels',
+                day: 'numeric',
+              });
+              const monthShort = evDate.toLocaleDateString(locale === 'nl' ? 'nl-BE' : 'en-US', {
+                timeZone: 'Europe/Brussels',
+                month: 'short',
+              });
+              const timeStr = evDate.toLocaleTimeString('en-GB', {
+                timeZone: 'Europe/Brussels',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false,
+              });
 
-            const groups = event.groups || [];
-            const hasGroups = groups.length > 0;
-            const totalSlots = hasGroups
-              ? groups.reduce((acc: number, g: any) => acc + (g.maxSlots || 0), 0)
-              : 0;
+              const groups = event.groups || [];
+              const hasGroups = groups.length > 0;
+              const totalSlots = hasGroups
+                ? groups.reduce((acc: number, g: any) => acc + (g.maxSlots || 0), 0)
+                : 0;
 
-            const rowContent = (
-              <>
-                {/* Date Capsule (Placed cleanly on Left) */}
-                <div className="compact-date-capsule">
-                  <span className="compact-date-weekday">{weekday}</span>
-                  <span className="compact-date-day">{dayNum}</span>
-                  <span className="compact-date-month">{monthShort}</span>
-                </div>
+              return (
+                <Link
+                  key={`convex-${event._id}`}
+                  href={`/event/${event.slug}`}
+                  className="compact-event-row"
+                >
+                  {/* Date Capsule (Placed cleanly on Left) */}
+                  <div className="compact-date-capsule">
+                    <span className="compact-date-weekday">{weekday}</span>
+                    <span className="compact-date-day">{dayNum}</span>
+                    <span className="compact-date-month">{monthShort}</span>
+                  </div>
 
-                {/* Event Details */}
-                <div className="compact-event-info">
-                  <div className="compact-title-row">
-                    <h2 className="compact-event-title">{event.title}</h2>
-                    {event.isOpenGameNight && (
-                      <span className="compact-slots-badge">
-                        <Sparkles size={12} />
-                        <span>{locale === 'nl' ? 'Vrije inloop' : 'Walk-in'}</span>
-                      </span>
-                    )}
-                    {hasGroups && (
-                      <span className="compact-slots-badge">
-                        <Users size={12} />
-                        <span>
-                          {groups.length} {locale === 'nl' ? 'tafels' : 'tables'} ({totalSlots} {locale === 'nl' ? 'plekken' : 'slots'})
+                  {/* Event Details */}
+                  <div className="compact-event-info">
+                    <div className="compact-title-row">
+                      <h2 className="compact-event-title">{event.title}</h2>
+                      {hasGroups && (
+                        <span className="compact-slots-badge">
+                          <Users size={12} />
+                          <span>
+                            {groups.length} {locale === 'nl' ? 'tafels' : 'tables'} ({totalSlots} {locale === 'nl' ? 'plekken' : 'slots'})
+                          </span>
                         </span>
+                      )}
+                    </div>
+
+                    <div className="compact-event-meta">
+                      <span className="compact-meta-time">
+                        <Clock size={13} />
+                        <span>{timeStr}</span>
                       </span>
-                    )}
+                      <span className="compact-meta-location">
+                        Het Textielhuis, Kortrijk
+                      </span>
+                    </div>
                   </div>
 
-                  <div className="compact-event-meta">
-                    <span className="compact-meta-time">
-                      <Clock size={13} />
-                      <span>{timeStr}</span>
-                    </span>
-                    <span className="compact-meta-location">
-                      Het Textielhuis, Kortrijk
-                    </span>
-                  </div>
-                </div>
-
-                {/* Arrow Icon */}
-                {!event.isOpenGameNight && (
+                  {/* Arrow Icon */}
                   <div className="compact-event-arrow">
                     <ChevronRight size={18} />
                   </div>
-                )}
-              </>
-            );
-
-            if (event.isOpenGameNight) {
-              return (
-                <div
-                  key={`open-${event._id}`}
-                  className="compact-event-row compact-event-row-open"
-                >
-                  {rowContent}
-                </div>
+                </Link>
               );
-            }
-
-            return (
-              <Link
-                key={`convex-${event._id}`}
-                href={`/event/${event.slug}`}
-                className="compact-event-row"
-              >
-                {rowContent}
-              </Link>
-            );
-          })}
+            })}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
