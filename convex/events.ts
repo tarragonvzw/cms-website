@@ -237,3 +237,50 @@ export const removeSignupUrlField = mutation({
     return { cleaned, total: allEvents.length };
   },
 });
+
+/**
+ * Delete events older than a given ISO timestamp (defaults to 1 year ago).
+ * Also cleans up any signups associated with those deleted events.
+ */
+export const cleanupOldEvents = mutation({
+  args: {
+    olderThanIso: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    let cutoffIso = args.olderThanIso;
+    if (!cutoffIso) {
+      const oneYearAgo = new Date();
+      oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+      cutoffIso = oneYearAgo.toISOString();
+    }
+
+    const oldEvents = await ctx.db
+      .query("events")
+      .withIndex("by_date", (q) => q.lt("date", cutoffIso!))
+      .collect();
+
+    let deletedEventsCount = 0;
+    let deletedSignupsCount = 0;
+
+    for (const ev of oldEvents) {
+      const signups = await ctx.db
+        .query("signups")
+        .withIndex("by_event", (q) => q.eq("eventSlug", ev.slug))
+        .collect();
+
+      for (const signup of signups) {
+        await ctx.db.delete(signup._id);
+        deletedSignupsCount++;
+      }
+
+      await ctx.db.delete(ev._id);
+      deletedEventsCount++;
+    }
+
+    return {
+      deletedEventsCount,
+      deletedSignupsCount,
+      cutoffIso,
+    };
+  },
+});

@@ -23,8 +23,7 @@ export default defineSchema({
     .index("by_clerkId", ["clerkId"])
     .index("by_role", ["role"])
     .index("by_isMember", ["isMember"])
-    .index("by_stripeCustomerId", ["stripeCustomerId"])
-    .index("by_membershipExpiresAt", ["membershipExpiresAt"]),
+    .index("by_stripeCustomerId", ["stripeCustomerId"]),
 
   signups: defineTable({
     eventSlug: v.string(),
@@ -93,7 +92,6 @@ export default defineSchema({
   })
     .index("by_slug", ["slug"])
     .index("by_language_and_enabled", ["language", "enabled"])
-    .index("by_language_and_weight", ["language", "weight"])
     .index("by_enabled", ["enabled"]),
 });
 
