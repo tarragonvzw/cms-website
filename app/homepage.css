@@ -702,6 +702,44 @@
     text-transform: uppercase;
 }
 
+/* Intro Session Badge & Icon */
+.daybox-guild-badge.is-intro-session {
+    background: rgba(56, 189, 248, 0.18);
+    border: 1px solid rgba(56, 189, 248, 0.6);
+    color: #e0f2fe;
+}
+
+.daybox-guild-badge.is-intro-session:hover {
+    background: rgba(56, 189, 248, 0.3);
+    border-color: #38bdf8;
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.35);
+}
+
+.daybox-guild-intro-icon {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    flex-shrink: 0;
+    background: rgba(14, 165, 233, 0.35);
+    border: 1px solid rgba(56, 189, 248, 0.8);
+    color: #bae6fd;
+    border-radius: 0.25rem;
+    padding: 0.08rem 0.3rem;
+    font-size: 0.55rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    line-height: 1;
+}
+
+.intro-compass-icon {
+    flex-shrink: 0;
+    color: #38bdf8;
+}
+
+.intro-text {
+    line-height: 1;
+}
+
 /* Compact Events Section */
 .compact-events-section {
     display: flex;

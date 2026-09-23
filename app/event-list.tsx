@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useQuery } from 'convex/react';
 import { api } from '../convex/_generated/api';
-import { Calendar as CalendarIcon, Clock, ChevronRight, Users, Sparkles } from 'lucide-react';
+import { Calendar as CalendarIcon, Clock, ChevronRight, Users, Sparkles, Compass } from 'lucide-react';
 import VoidLogo from '../public/images/Void_Logo_WhiteTransparent.png';
 
 interface EventListProps {
@@ -24,6 +24,8 @@ interface GuildSession {
   location?: string;
   locked?: boolean;
   planning?: boolean;
+  isPrivate?: boolean;
+  isIntro?: boolean;
 }
 
 export default function EventList({ locale = 'nl' }: EventListProps) {
@@ -46,8 +48,10 @@ export default function EventList({ locale = 'nl' }: EventListProps) {
         if (!res.ok) return;
         const data = await res.json();
         if (!isCancelled && Array.isArray(data)) {
-          // Filter only sessions that have an explicit scheduled date and are not planning
-          const scheduled = data.filter((s: GuildSession) => typeof s.date === 'number' && !s.planning);
+          // Filter only sessions that have an explicit scheduled date, are not planning, and are not private
+          const scheduled = data.filter(
+            (s: GuildSession) => typeof s.date === 'number' && !s.planning && !s.isPrivate
+          );
           setGuildSessions(scheduled);
         }
       } catch (err) {
@@ -273,6 +277,7 @@ export default function EventList({ locale = 'nl' }: EventListProps) {
                     const playersCount = session.characters?.length || 0;
                     const maxPlayers = session.maxPlayers || 6;
                     const isFull = Boolean(session.locked || playersCount >= maxPlayers);
+                    const isIntro = Boolean(session.isIntro);
 
                     return (
                       <a
@@ -280,8 +285,8 @@ export default function EventList({ locale = 'nl' }: EventListProps) {
                         href={`https://guild.tarragon.be/sessions/${session._id}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="daybox-guild-badge"
-                        title={`Guild Session: ${sessionTitle} (${isFull ? (locale === 'nl' ? 'Volzet' : 'Full') : `${playersCount}/${maxPlayers}`}) - Click to open on Guild of The Void`}
+                        className={`daybox-guild-badge ${isIntro ? 'is-intro-session' : ''}`}
+                        title={`Guild Session: ${isIntro ? '[INTRO] ' : ''}${sessionTitle} (${isFull ? (locale === 'nl' ? 'Volzet' : 'Full') : `${playersCount}/${maxPlayers}`}) - Click to open on Guild of The Void`}
                       >
                         <Image
                           src={VoidLogo}
@@ -290,6 +295,15 @@ export default function EventList({ locale = 'nl' }: EventListProps) {
                           height={14}
                           className="daybox-void-logo"
                         />
+                        {isIntro && (
+                          <span
+                            className="daybox-guild-intro-icon"
+                            title={locale === 'nl' ? 'Introductiesessie voor nieuwe spelers' : 'Introductory session for new players'}
+                          >
+                            <Compass size={12} className="intro-compass-icon" />
+                            <span className="intro-text">INTRO</span>
+                          </span>
+                        )}
                         <span className="daybox-guild-name">{sessionTitle}</span>
                         {isFull && (
                           <span className="daybox-guild-full-icon" title={locale === 'nl' ? 'Volzet' : 'Full'}>
