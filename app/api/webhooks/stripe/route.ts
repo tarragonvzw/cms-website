@@ -71,6 +71,8 @@ export async function POST(req: Request) {
         const customerId = subscription.customer as string;
         const status = subscription.status;
         const subscriptionId = subscription.id;
+        const currentPeriodEnd = (subscription as any).current_period_end;
+        const membershipExpiresAt = typeof currentPeriodEnd === "number" ? currentPeriodEnd * 1000 : undefined;
 
         // Lookup user by Stripe Customer ID or metadata
         let clerkUserId: string | undefined = subscription.metadata?.clerkUserId;
@@ -90,6 +92,7 @@ export async function POST(req: Request) {
               stripeSubscriptionId: subscriptionId,
               subscriptionStatus: status,
               role: "member",
+              membershipExpiresAt,
             });
             console.log(`Updated subscription to ${status} for ${clerkUserId}`);
           } else if (status === "canceled" || status === "unpaid") {
@@ -109,6 +112,7 @@ export async function POST(req: Request) {
               stripeCustomerId: customerId,
               stripeSubscriptionId: subscriptionId,
               subscriptionStatus: status,
+              membershipExpiresAt,
             });
           }
         }

@@ -23,7 +23,6 @@ export default function Header() {
     const currentUser = useQuery(api.users.getCurrentUser);
     const isDragon = currentUser?.role === 'dragon';
     const isMember = currentUser?.role === 'member' || isDragon;
-    const hasStripeBilling = Boolean(currentUser?.stripeCustomerId);
     const pathname = usePathname();
 
     const handleJoinKobold = async () => {
@@ -52,19 +51,17 @@ export default function Header() {
         }
     };
 
-    const membershipActionLabel = hasStripeBilling
-        ? "Manage Membership"
-        : isDragon
+    const membershipActionLabel = isDragon
         ? "Membership Status"
         : isMember
         ? "Manage Membership"
         : "Join Kobold (10€/yr)";
 
     const handleMembershipClick = () => {
-        if (hasStripeBilling || (!isDragon && isMember)) {
-            handleManageBilling();
-        } else if (isDragon) {
+        if (isDragon) {
             openUserProfile();
+        } else if (isMember) {
+            handleManageBilling();
         } else {
             handleJoinKobold();
         }

@@ -382,6 +382,7 @@ export const updateUserStripeInfo = mutation({
         v.literal("dragon")
       )
     ),
+    membershipExpiresAt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const user = await ctx.db
@@ -399,11 +400,13 @@ export const updateUserStripeInfo = mutation({
       subscriptionStatus?: string;
       role?: "user" | "member" | "dragon";
       isMember?: boolean;
+      membershipExpiresAt?: number;
     } = {};
 
     if (args.stripeCustomerId !== undefined) patchData.stripeCustomerId = args.stripeCustomerId;
     if (args.stripeSubscriptionId !== undefined) patchData.stripeSubscriptionId = args.stripeSubscriptionId;
     if (args.subscriptionStatus !== undefined) patchData.subscriptionStatus = args.subscriptionStatus;
+    if (args.membershipExpiresAt !== undefined) patchData.membershipExpiresAt = args.membershipExpiresAt;
 
     if (args.role !== undefined) {
       // Never demote a Dragon to a member
@@ -418,11 +421,12 @@ export const updateUserStripeInfo = mutation({
     await ctx.db.patch(user._id, patchData);
 
     // Sync isMember to Clerk if role or membership changed
-    if (patchData.isMember !== undefined) {
+    if (patchData.isMember !== undefined || patchData.membershipExpiresAt !== undefined) {
       await ctx.scheduler.runAfter(0, internal.users.syncClerkMembership, {
         clerkId: args.clerkId,
-        isMember: patchData.isMember,
+        isMember: patchData.isMember ?? user.isMember,
         role: patchData.role ?? user.role,
+        membershipExpiresAt: patchData.membershipExpiresAt ?? user.membershipExpiresAt,
       });
     }
 
