@@ -97,6 +97,7 @@ export async function createKoboldCheckoutSessionAction(returnPath: string = "/"
       tax_id_collection: {
         enabled: true,
       },
+      allow_promotion_codes: true,
       consent_collection: {
         terms_of_service: "required",
       },
