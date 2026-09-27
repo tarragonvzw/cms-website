@@ -57,6 +57,17 @@ export const storeUser = mutation({
       if (Object.keys(patchData).length > 0) {
         await ctx.db.patch(user._id, patchData);
       }
+
+      // Self-heal: If user is member/dragon in Convex but Clerk claims lack isMember, sync to Clerk
+      if (isMember && !hasClerkMemberClaim) {
+        await ctx.scheduler.runAfter(0, internal.users.syncClerkMembership, {
+          clerkId: clerkId || user.clerkId,
+          isMember: true,
+          role: user.role,
+          membershipExpiresAt: user.membershipExpiresAt,
+        });
+      }
+
       return user._id;
     }
 
