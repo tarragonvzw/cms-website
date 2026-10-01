@@ -12,6 +12,7 @@ interface EventPageProps {
     title: string;
     date: string;
     body: string;
+    location?: string;
     groups?: {
       name: string;
       description?: string;
@@ -44,12 +45,17 @@ export default function EventClientPage({ event: initialEvent }: EventPageProps)
         hour12: false,
       });
 
+  const eventLocation = event.location?.trim() || "Het Textielhuis, Kortrijk";
+
   return (
     <div className="content">
       <h1>{event.title}</h1>
-      <h3 style={{ color: "var(--secondary)", textTransform: "capitalize" }}>
+      <h3 style={{ color: "var(--secondary)", textTransform: "capitalize", marginBottom: "0.4rem" }}>
         {formattedDate} {formattedTime ? `om ${formattedTime}` : ""}
       </h3>
+      <div style={{ color: "rgba(242, 211, 180, 0.85)", fontSize: "0.95rem", marginBottom: "1.5rem", display: "flex", alignItems: "center", gap: "0.35rem" }}>
+        <span>📍 {eventLocation}</span>
+      </div>
 
       <div className="event-body-markdown">
         <ReactMarkdown>{event.body}</ReactMarkdown>

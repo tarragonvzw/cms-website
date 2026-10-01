@@ -43,6 +43,7 @@ export default defineSchema({
     title: v.string(),
     date: v.string(),
     body: v.string(),
+    location: v.optional(v.string()),
     groups: v.optional(
       v.array(
         v.object({

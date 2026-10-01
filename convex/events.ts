@@ -80,6 +80,7 @@ export const saveEvent = mutation({
     title: v.string(),
     date: v.string(),
     body: v.string(),
+    location: v.optional(v.string()),
     groups: v.optional(v.array(groupValidator)),
   },
   handler: async (ctx, args) => {
@@ -116,6 +117,7 @@ export const saveEvent = mutation({
       title: args.title.trim(),
       date: args.date,
       body: args.body,
+      location: args.location?.trim() ? args.location.trim() : undefined,
       groups: args.groups && args.groups.length > 0 ? args.groups : undefined,
     };
 
@@ -176,6 +178,7 @@ export const importEventsBatch = mutation({
         title: v.string(),
         date: v.string(),
         body: v.string(),
+        location: v.optional(v.string()),
         groups: v.optional(v.array(groupValidator)),
       })
     ),
@@ -195,6 +198,7 @@ export const importEventsBatch = mutation({
           title: item.title,
           date: item.date,
           body: item.body,
+          location: item.location,
           groups: item.groups,
         });
         updated++;
@@ -204,6 +208,7 @@ export const importEventsBatch = mutation({
           title: item.title,
           date: item.date,
           body: item.body,
+          location: item.location,
           groups: item.groups,
         });
         inserted++;

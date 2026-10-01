@@ -395,7 +395,7 @@ export default function EventList({ locale = 'nl' }: EventListProps) {
                         <span>{timeStr}</span>
                       </span>
                       <span className="compact-meta-location">
-                        Het Textielhuis, Kortrijk
+                        {event.location?.trim() || "Het Textielhuis, Kortrijk"}
                       </span>
                     </div>
                   </div>

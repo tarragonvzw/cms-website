@@ -109,6 +109,7 @@ export default function DragonAdminPage() {
     slug: string;
     title: string;
     date: string;
+    location?: string;
     body: string;
     groups: { name: string; description?: string; maxSlots: number }[];
   } | null>(null);
@@ -341,6 +342,7 @@ export default function DragonAdminPage() {
       slug: `${slugDate}_Event`,
       title: "",
       date: dateStr,
+      location: "Het Textielhuis, Kortrijk",
       body: "",
       groups: [],
     });
@@ -355,6 +357,7 @@ export default function DragonAdminPage() {
       slug: ev.slug,
       title: ev.title,
       date: ev.date,
+      location: ev.location || "Het Textielhuis, Kortrijk",
       body: ev.body || "",
       groups: ev.groups ? [...ev.groups] : [],
     });
@@ -393,6 +396,7 @@ export default function DragonAdminPage() {
         slug: editingEvent.slug,
         title: editingEvent.title,
         date: utcIso,
+        location: editingEvent.location?.trim() || "Het Textielhuis, Kortrijk",
         body: editingEvent.body,
         groups: editingEvent.groups,
       });
@@ -1090,7 +1094,10 @@ export default function DragonAdminPage() {
                           </div>
                         </td>
                         <td style={{ fontWeight: 600, color: "var(--light)" }}>
-                          {ev.title}
+                          <div>{ev.title}</div>
+                          <div style={{ fontSize: "0.8rem", color: "var(--secondary)", fontWeight: 400, marginTop: "0.2rem" }}>
+                            📍 {ev.location?.trim() || "Het Textielhuis, Kortrijk"}
+                          </div>
                         </td>
                         <td style={{ color: "rgba(242, 211, 180, 0.7)", fontFamily: "monospace", fontSize: "0.85rem" }}>
                           {ev.slug}
@@ -1224,6 +1231,23 @@ export default function DragonAdminPage() {
                       onChange={(e) => setEventDateLocal(e.target.value)}
                     />
                   </div>
+                </div>
+
+                <div className="dragon-form-group">
+                  <label htmlFor="event-location">Location</label>
+                  <input
+                    id="event-location"
+                    type="text"
+                    className="dragon-form-input"
+                    placeholder="e.g. Het Textielhuis, Kortrijk"
+                    value={editingEvent.location ?? "Het Textielhuis, Kortrijk"}
+                    onChange={(e) =>
+                      setEditingEvent({
+                        ...editingEvent,
+                        location: e.target.value,
+                      })
+                    }
+                  />
                 </div>
 
                 <div className="dragon-form-group">
