@@ -9,6 +9,7 @@
  */
 
 import type * as crons from "../crons.js";
+import type * as discord from "../discord.js";
 import type * as dragons from "../dragons.js";
 import type * as events from "../events.js";
 import type * as pages from "../pages.js";
@@ -24,6 +25,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   crons: typeof crons;
+  discord: typeof discord;
   dragons: typeof dragons;
   events: typeof events;
   pages: typeof pages;

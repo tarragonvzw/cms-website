@@ -18,9 +18,11 @@ export default defineSchema({
     stripeSubscriptionId: v.optional(v.string()),
     subscriptionStatus: v.optional(v.string()),
     membershipExpiresAt: v.optional(v.number()),
+    discordId: v.optional(v.string()),
   })
     .index("by_tokenIdentifier", ["tokenIdentifier"])
     .index("by_clerkId", ["clerkId"])
+    .index("by_discordId", ["discordId"])
     .index("by_role", ["role"])
     .index("by_isMember", ["isMember"])
     .index("by_stripeCustomerId", ["stripeCustomerId"]),

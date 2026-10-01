@@ -11,6 +11,7 @@ export const storeUser = mutation({
     name: v.optional(v.string()),
     email: v.optional(v.string()),
     imageUrl: v.optional(v.string()),
+    discordId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -32,8 +33,6 @@ export const storeUser = mutation({
     const imageUrl = args.imageUrl ?? identity.pictureUrl ?? undefined;
 
     const customClaims = identity as Record<string, unknown>;
-    const isAdmin =
-      customClaims.admin === "true" || customClaims.admin === true;
     const hasClerkMemberClaim =
       customClaims.isMember === "true" || customClaims.isMember === true;
 
@@ -46,6 +45,7 @@ export const storeUser = mutation({
         imageUrl?: string;
         clerkId?: string;
         isMember?: boolean;
+        discordId?: string;
       } = {};
 
       if (name && name !== user.name) patchData.name = name;
@@ -53,6 +53,7 @@ export const storeUser = mutation({
       if (imageUrl && imageUrl !== user.imageUrl) patchData.imageUrl = imageUrl;
       if (clerkId && clerkId !== user.clerkId) patchData.clerkId = clerkId;
       if (user.isMember !== isMember) patchData.isMember = isMember;
+      if (args.discordId && args.discordId !== user.discordId) patchData.discordId = args.discordId;
 
       if (Object.keys(patchData).length > 0) {
         await ctx.db.patch(user._id, patchData);
@@ -65,6 +66,14 @@ export const storeUser = mutation({
           isMember: true,
           role: user.role,
           membershipExpiresAt: user.membershipExpiresAt,
+          discordUserId: args.discordId || user.discordId,
+        });
+      } else if (args.discordId && args.discordId !== user.discordId) {
+        // If Discord ID changed or was newly linked, ensure Discord role reflects membership status
+        await ctx.scheduler.runAfter(0, internal.discord.syncDiscordKoboldRole, {
+          clerkId: clerkId || user.clerkId,
+          isMember,
+          discordUserId: args.discordId,
         });
       }
 
@@ -86,7 +95,16 @@ export const storeUser = mutation({
       imageUrl,
       role: initialRole,
       isMember,
+      discordId: args.discordId,
     });
+
+    if (isMember || args.discordId) {
+      await ctx.scheduler.runAfter(0, internal.discord.syncDiscordKoboldRole, {
+        clerkId,
+        isMember,
+        discordUserId: args.discordId,
+      });
+    }
 
     return newUserId;
   },
@@ -166,6 +184,7 @@ export const updateUserRole = mutation({
       isMember,
       role: args.role,
       membershipExpiresAt: expiresAt,
+      discordUserId: user.discordId,
     });
 
     return { success: true, role: args.role, isMember, membershipExpiresAt: expiresAt };
@@ -233,6 +252,7 @@ export const updateUserRoleByClerkId = mutation({
       isMember,
       role: args.role,
       membershipExpiresAt: expiresAt,
+      discordUserId: user?.discordId,
     });
 
     return { success: true, role: args.role, isMember, membershipExpiresAt: expiresAt };
@@ -251,8 +271,16 @@ export const syncClerkMembership = internalAction({
       v.union(v.literal("user"), v.literal("member"), v.literal("dragon"))
     ),
     membershipExpiresAt: v.optional(v.number()),
+    discordUserId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    // 1. Sync Discord Kobold Role in background
+    await ctx.scheduler.runAfter(0, internal.discord.syncDiscordKoboldRole, {
+      clerkId: args.clerkId,
+      isMember: args.isMember,
+      discordUserId: args.discordUserId,
+    });
+
     const secretKey = process.env.CLERK_SECRET_KEY;
     if (!secretKey) {
       console.warn(
@@ -336,6 +364,7 @@ export const checkExpiredMemberships = internalMutation({
           clerkId: user.clerkId,
           isMember: false,
           role: "user",
+          discordUserId: user.discordId,
         });
         expiredCount++;
       }
@@ -438,6 +467,7 @@ export const updateUserStripeInfo = mutation({
         isMember: patchData.isMember ?? user.isMember,
         role: patchData.role ?? user.role,
         membershipExpiresAt: patchData.membershipExpiresAt ?? user.membershipExpiresAt,
+        discordUserId: user.discordId,
       });
     }
 
