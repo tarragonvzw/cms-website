@@ -31,13 +31,13 @@ export default function EventClientPage({ event: initialEvent }: EventPageProps)
   const eventDate = new Date(event.date);
   const formattedDate = isNaN(eventDate.getTime())
     ? event.date
-    : eventDate.toLocaleDateString("nl-BE", {
+    : eventDate.toLocaleDateString("en-GB", {
         timeZone: "Europe/Brussels",
         weekday: "long",
         day: "numeric",
         month: "long",
         year: "numeric",
-        });
+      });
   const formattedTime = isNaN(eventDate.getTime())
     ? ""
     : eventDate.toLocaleTimeString("en-GB", {
@@ -69,10 +69,10 @@ export default function EventClientPage({ event: initialEvent }: EventPageProps)
           <span style={{ fontSize: "1.5rem" }}>⚠️</span>
           <div>
             <div style={{ color: "#ef4444", fontSize: "1.05rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-              Geannuleerd / Gesloten
+              Cancelled / Closed
             </div>
             <div style={{ color: "var(--light)", fontSize: "0.95rem", fontWeight: "normal", marginTop: "0.2rem" }}>
-              {event.cancelReason || "Dit evenement gaat niet door."}
+              {event.cancelReason || "This event has been cancelled or the venue is closed."}
             </div>
           </div>
         </div>
@@ -80,7 +80,7 @@ export default function EventClientPage({ event: initialEvent }: EventPageProps)
 
       <h1>{event.title}</h1>
       <h3 style={{ color: "var(--secondary)", textTransform: "capitalize", marginBottom: "0.4rem" }}>
-        {formattedDate} {formattedTime ? `om ${formattedTime}` : ""}
+        {formattedDate} {formattedTime ? `at ${formattedTime}` : ""}
       </h3>
       <div style={{ color: "rgba(242, 211, 180, 0.85)", fontSize: "0.95rem", marginBottom: "1.5rem", display: "flex", alignItems: "center", gap: "0.35rem" }}>
         <span>📍 {eventLocation}</span>

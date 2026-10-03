@@ -28,7 +28,8 @@ interface GuildSession {
   isIntro?: boolean;
 }
 
-export default function EventList({ locale = 'nl' }: EventListProps) {
+export default function EventList(props: EventListProps = {}) {
+  void props;
   // Brussels time calculations
   const [nowDate, setNowDate] = useState<Date>(() => new Date());
   const [guildSessions, setGuildSessions] = useState<GuildSession[]>([]);
@@ -94,7 +95,7 @@ export default function EventList({ locale = 'nl' }: EventListProps) {
         date: d,
         dateKey,
         isToday: i === 0,
-        weekdayShort: d.toLocaleDateString(locale === 'nl' ? 'nl-BE' : 'en-US', {
+        weekdayShort: d.toLocaleDateString('en-US', {
           timeZone: 'Europe/Brussels',
           weekday: 'short',
         }),
@@ -102,7 +103,7 @@ export default function EventList({ locale = 'nl' }: EventListProps) {
           timeZone: 'Europe/Brussels',
           day: 'numeric',
         }),
-        monthShort: d.toLocaleDateString(locale === 'nl' ? 'nl-BE' : 'en-US', {
+        monthShort: d.toLocaleDateString('en-US', {
           timeZone: 'Europe/Brussels',
           month: 'short',
         }),
@@ -114,7 +115,7 @@ export default function EventList({ locale = 'nl' }: EventListProps) {
       sixMonthsIso: sixMonthsLater.toISOString(),
       daysList: days,
     };
-  }, [nowDate, locale]);
+  }, [nowDate]);
 
   // Query events in the 6 month window
   const futureEvents = useQuery(api.events.getUpcomingEvents, {
@@ -177,11 +178,11 @@ export default function EventList({ locale = 'nl' }: EventListProps) {
         <div className="eventbox-header-title">
           <div className="title-left">
             <CalendarIcon size={22} className="eventbox-title-icon" />
-            <h1>{locale === 'nl' ? 'Aankomende Evenementen' : 'Upcoming Events'}</h1>
+            <h1>Upcoming Events</h1>
           </div>
         </div>
         <div className="eventbox-loading">
-          <span>{locale === 'nl' ? 'Evenementen laden...' : 'Loading events...'}</span>
+          <span>Loading events...</span>
         </div>
       </div>
     );
@@ -193,17 +194,17 @@ export default function EventList({ locale = 'nl' }: EventListProps) {
       <div className="eventbox-header-title">
         <div className="title-left">
           <CalendarIcon size={22} className="eventbox-title-icon" />
-          <h1>{locale === 'nl' ? 'Aankomende Evenementen' : 'Upcoming Events'}</h1>
+          <h1>Upcoming Events</h1>
         </div>
         <span className="eventbox-window-tag">
-          {locale === 'nl' ? 'Komende 6 maanden' : 'Next 6 months'}
+          Next 6 months
         </span>
       </div>
 
       {/* 6-Day Overview Dayboxes */}
       <div className="six-day-overview">
         <div className="six-day-label">
-          <span>{locale === 'nl' ? 'Deze Week' : 'Next 6 Days'}</span>
+          <span>Next 6 Days</span>
         </div>
         <div className="dayboxes-grid">
           {daysList.map((day) => {
@@ -247,11 +248,11 @@ export default function EventList({ locale = 'nl' }: EventListProps) {
                   {cancelledEvent && (
                     <div
                       className="daybox-cancelled-badge"
-                      title={cancelledEvent.cancelReason || (locale === 'nl' ? 'Gesloten / Geen evenement' : 'Closed / No event')}
+                      title={cancelledEvent.cancelReason || 'Closed / No event'}
                     >
                       <span className="badge-warning-icon">⚠️</span>
                       <span className="daybox-event-name">
-                        {cancelledEvent.cancelReason || (locale === 'nl' ? 'Gesloten' : 'Closed')}
+                        {cancelledEvent.cancelReason || 'Closed'}
                       </span>
                     </div>
                   )}
@@ -304,7 +305,7 @@ export default function EventList({ locale = 'nl' }: EventListProps) {
                         target="_blank"
                         rel="noopener noreferrer"
                         className={`daybox-guild-badge ${isIntro ? 'is-intro-session' : ''}`}
-                        title={`Guild Session: ${isIntro ? '[INTRO] ' : ''}${sessionTitle} (${isFull ? (locale === 'nl' ? 'Volzet' : 'Full') : `${playersCount}/${maxPlayers}`}) - Click to open on Guild of The Void`}
+                        title={`Guild Session: ${isIntro ? '[INTRO] ' : ''}${sessionTitle} (${isFull ? 'Full' : `${playersCount}/${maxPlayers}`}) - Click to open on Guild of The Void`}
                       >
                         <Image
                           src={VoidLogo}
@@ -316,7 +317,7 @@ export default function EventList({ locale = 'nl' }: EventListProps) {
                         {isIntro && (
                           <span
                             className="daybox-guild-intro-icon"
-                            title={locale === 'nl' ? 'Introductiesessie voor nieuwe spelers' : 'Introductory session for new players'}
+                            title="Introductory session for new players"
                           >
                             <Compass size={12} className="intro-compass-icon" />
                             <span className="intro-text">INTRO</span>
@@ -324,8 +325,8 @@ export default function EventList({ locale = 'nl' }: EventListProps) {
                         )}
                         <span className="daybox-guild-name">{sessionTitle}</span>
                         {isFull && (
-                          <span className="daybox-guild-full-icon" title={locale === 'nl' ? 'Volzet' : 'Full'}>
-                            {locale === 'nl' ? 'VOL' : 'FULL'}
+                          <span className="daybox-guild-full-icon" title="Full">
+                            FULL
                           </span>
                         )}
                       </a>
@@ -348,14 +349,14 @@ export default function EventList({ locale = 'nl' }: EventListProps) {
       {upcomingEvents.length > 0 && (
         <div className="compact-events-section">
           <div className="compact-events-header">
-            <span>{locale === 'nl' ? 'Evenementenkalender' : 'Schedule'}</span>
+            <span>Schedule</span>
             <span className="count-badge">{upcomingEvents.length}</span>
           </div>
 
           <div className="compact-events-list">
             {upcomingEvents.map((event) => {
               const evDate = new Date(event.date);
-              const weekday = evDate.toLocaleDateString(locale === 'nl' ? 'nl-BE' : 'en-US', {
+              const weekday = evDate.toLocaleDateString('en-US', {
                 timeZone: 'Europe/Brussels',
                 weekday: 'short',
               });
@@ -363,7 +364,7 @@ export default function EventList({ locale = 'nl' }: EventListProps) {
                 timeZone: 'Europe/Brussels',
                 day: 'numeric',
               });
-              const monthShort = evDate.toLocaleDateString(locale === 'nl' ? 'nl-BE' : 'en-US', {
+              const monthShort = evDate.toLocaleDateString('en-US', {
                 timeZone: 'Europe/Brussels',
                 month: 'short',
               });
@@ -403,13 +404,13 @@ export default function EventList({ locale = 'nl' }: EventListProps) {
                       </h2>
                       {isCancelled ? (
                         <span className="compact-warning-badge">
-                          {event.cancelReason || (locale === 'nl' ? 'Gesloten / Geen Evenement' : 'Closed / No Event')}
+                          {event.cancelReason || 'Closed / No Event'}
                         </span>
                       ) : hasGroups ? (
                         <span className="compact-slots-badge">
                           <Users size={12} />
                           <span>
-                            {groups.length} {locale === 'nl' ? 'tafels' : 'tables'} ({totalSlots} {locale === 'nl' ? 'plekken' : 'slots'})
+                            {groups.length} {groups.length === 1 ? 'table' : 'tables'} ({totalSlots} {totalSlots === 1 ? 'slot' : 'slots'})
                           </span>
                         </span>
                       ) : null}
@@ -418,7 +419,7 @@ export default function EventList({ locale = 'nl' }: EventListProps) {
                     <div className="compact-event-meta">
                       <span className="compact-meta-time" style={isCancelled ? { color: '#f87171' } : undefined}>
                         <Clock size={13} />
-                        <span>{isCancelled ? (locale === 'nl' ? 'Geannuleerd / Gesloten' : 'Cancelled / Closed') : timeStr}</span>
+                        <span>{isCancelled ? 'Cancelled / Closed' : timeStr}</span>
                       </span>
                       <span className="compact-meta-location">
                         {event.location?.trim() || "Het Textielhuis, Kortrijk"}
