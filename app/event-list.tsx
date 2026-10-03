@@ -209,18 +209,24 @@ export default function EventList({ locale = 'nl' }: EventListProps) {
           {daysList.map((day) => {
             const dayEvents = eventsByDate.get(day.dateKey) || [];
             const daySessions = guildSessionsByDate.get(day.dateKey) || [];
-            const hasConvexEvent = dayEvents.length > 0;
+            
+            // Check if day has an active closure / cancellation exception
+            const cancelledEvent = dayEvents.find((e) => Boolean(e.isCancelled));
+            const activeEvents = dayEvents.filter((e) => !e.isCancelled);
+            const hasActiveConvexEvent = activeEvents.length > 0;
             const isWednesday = new Date(`${day.dateKey}T12:00:00Z`).getUTCDay() === 3;
-            const isOpenGameNight = isWednesday && !hasConvexEvent;
+            const isOpenGameNight = isWednesday && !hasActiveConvexEvent && !cancelledEvent;
             const hasGuildSession = daySessions.length > 0;
-            const hasAnyActivity = hasConvexEvent || isOpenGameNight || hasGuildSession;
-            const firstEvent = dayEvents[0];
+            const hasAnyActivity = hasActiveConvexEvent || isOpenGameNight || hasGuildSession || Boolean(cancelledEvent);
+            const firstActiveEvent = activeEvents[0];
 
             return (
               <div
                 key={day.dateKey}
                 className={`daybox-card ${day.isToday ? 'is-today' : ''} ${
-                  hasConvexEvent || isOpenGameNight
+                  cancelledEvent
+                    ? 'daybox-cancelled-highlighted'
+                    : hasActiveConvexEvent || isOpenGameNight
                     ? 'daybox-highlighted'
                     : hasGuildSession
                     ? 'daybox-guild-highlighted'
@@ -238,25 +244,37 @@ export default function EventList({ locale = 'nl' }: EventListProps) {
 
                 {/* Content */}
                 <div className="daybox-content">
-                  {hasConvexEvent && (
+                  {cancelledEvent && (
+                    <div
+                      className="daybox-cancelled-badge"
+                      title={cancelledEvent.cancelReason || (locale === 'nl' ? 'Gesloten / Geen evenement' : 'Closed / No event')}
+                    >
+                      <span className="badge-warning-icon">⚠️</span>
+                      <span className="daybox-event-name">
+                        {cancelledEvent.cancelReason || (locale === 'nl' ? 'Gesloten' : 'Closed')}
+                      </span>
+                    </div>
+                  )}
+
+                  {!cancelledEvent && hasActiveConvexEvent && (
                     <Link
-                      href={`/event/${firstEvent.slug}`}
+                      href={`/event/${firstActiveEvent.slug}`}
                       className="daybox-event-link"
-                      title={firstEvent.title}
+                      title={firstActiveEvent.title}
                     >
                       <div className="daybox-event-badge">
                         <Sparkles size={11} className="badge-sparkle" />
-                        <span className="daybox-event-name">{firstEvent.title}</span>
+                        <span className="daybox-event-name">{firstActiveEvent.title}</span>
                       </div>
-                      {dayEvents.length > 1 && (
+                      {activeEvents.length > 1 && (
                         <span className="daybox-more-count">
-                          +{dayEvents.length - 1} more
+                          +{activeEvents.length - 1} more
                         </span>
                       )}
                     </Link>
                   )}
 
-                  {isOpenGameNight && (
+                  {!cancelledEvent && isOpenGameNight && (
                     <div
                       className="daybox-event-badge"
                       title="Open Game Night (19:00 - 22:00)"
@@ -267,7 +285,7 @@ export default function EventList({ locale = 'nl' }: EventListProps) {
                   )}
 
                   {/* Guild Sessions Badges */}
-                  {daySessions.map((session) => {
+                  {!cancelledEvent && daySessions.map((session) => {
                     const sessionTitle = session.questName
                       ? session.questName
                       : session.system 
@@ -362,14 +380,16 @@ export default function EventList({ locale = 'nl' }: EventListProps) {
                 ? groups.reduce((acc: number, g: any) => acc + (g.maxSlots || 0), 0)
                 : 0;
 
+              const isCancelled = Boolean(event.isCancelled);
+
               return (
                 <Link
                   key={`convex-${event._id}`}
                   href={`/event/${event.slug}`}
-                  className="compact-event-row"
+                  className={`compact-event-row ${isCancelled ? 'compact-cancelled-row' : ''}`}
                 >
                   {/* Date Capsule (Placed cleanly on Left) */}
-                  <div className="compact-date-capsule">
+                  <div className={`compact-date-capsule ${isCancelled ? 'cancelled-date-capsule' : ''}`}>
                     <span className="compact-date-weekday">{weekday}</span>
                     <span className="compact-date-day">{dayNum}</span>
                     <span className="compact-date-month">{monthShort}</span>
@@ -378,21 +398,27 @@ export default function EventList({ locale = 'nl' }: EventListProps) {
                   {/* Event Details */}
                   <div className="compact-event-info">
                     <div className="compact-title-row">
-                      <h2 className="compact-event-title">{event.title}</h2>
-                      {hasGroups && (
+                      <h2 className="compact-event-title" style={isCancelled ? { color: '#fca5a5' } : undefined}>
+                        {isCancelled ? `⚠️ ${event.title}` : event.title}
+                      </h2>
+                      {isCancelled ? (
+                        <span className="compact-warning-badge">
+                          {event.cancelReason || (locale === 'nl' ? 'Gesloten / Geen Evenement' : 'Closed / No Event')}
+                        </span>
+                      ) : hasGroups ? (
                         <span className="compact-slots-badge">
                           <Users size={12} />
                           <span>
                             {groups.length} {locale === 'nl' ? 'tafels' : 'tables'} ({totalSlots} {locale === 'nl' ? 'plekken' : 'slots'})
                           </span>
                         </span>
-                      )}
+                      ) : null}
                     </div>
 
                     <div className="compact-event-meta">
-                      <span className="compact-meta-time">
+                      <span className="compact-meta-time" style={isCancelled ? { color: '#f87171' } : undefined}>
                         <Clock size={13} />
-                        <span>{timeStr}</span>
+                        <span>{isCancelled ? (locale === 'nl' ? 'Geannuleerd / Gesloten' : 'Cancelled / Closed') : timeStr}</span>
                       </span>
                       <span className="compact-meta-location">
                         {event.location?.trim() || "Het Textielhuis, Kortrijk"}
@@ -401,7 +427,7 @@ export default function EventList({ locale = 'nl' }: EventListProps) {
                   </div>
 
                   {/* Arrow Icon */}
-                  <div className="compact-event-arrow">
+                  <div className="compact-event-arrow" style={isCancelled ? { color: 'rgba(239, 68, 68, 0.6)' } : undefined}>
                     <ChevronRight size={18} />
                   </div>
                 </Link>

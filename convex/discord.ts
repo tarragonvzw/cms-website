@@ -73,31 +73,47 @@ export const syncDiscordKoboldRole = internalAction({
       return;
     }
 
-    try {
-      const roleUrl = `${DISCORD_API_BASE}/guilds/${guildId}/members/${discordUserId}/roles/${KOBOLD_ROLE_ID}`;
-      const method = args.isMember ? "PUT" : "DELETE";
+    let attempts = 0;
+    const maxAttempts = 4;
 
-      const res = await fetch(roleUrl, {
-        method,
-        headers: {
-          Authorization: `Bot ${botToken}`,
-          "Content-Type": "application/json",
-        },
-      });
+    while (attempts < maxAttempts) {
+      attempts++;
+      try {
+        const roleUrl = `${DISCORD_API_BASE}/guilds/${guildId}/members/${discordUserId}/roles/${KOBOLD_ROLE_ID}`;
+        const method = args.isMember ? "PUT" : "DELETE";
 
-      if (res.status === 404) {
-        console.log(`User ${discordUserId} is not in Discord guild ${guildId} or role does not exist.`);
+        const res = await fetch(roleUrl, {
+          method,
+          headers: {
+            Authorization: `Bot ${botToken}`,
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (res.status === 429) {
+          const rateData = await res.json().catch(() => ({}));
+          const retryAfter = typeof rateData.retry_after === "number" ? Math.ceil(rateData.retry_after * 1000) : 2000;
+          console.warn(`Rate limited by Discord API. Retrying after ${retryAfter}ms (attempt ${attempts}/${maxAttempts})...`);
+          await new Promise((resolve) => setTimeout(resolve, retryAfter + 500));
+          continue;
+        }
+
+        if (res.status === 404) {
+          console.log(`User ${discordUserId} is not in Discord guild ${guildId} or role does not exist.`);
+          return;
+        }
+
+        if (!res.ok && res.status !== 204) {
+          const errText = await res.text();
+          console.error(`Failed to ${args.isMember ? "grant" : "revoke"} Kobold Discord role for ${discordUserId}:`, errText);
+        } else {
+          console.log(`Successfully ${args.isMember ? "granted" : "revoked"} Kobold role (${KOBOLD_ROLE_ID}) for Discord user ${discordUserId}`);
+        }
+        return;
+      } catch (err) {
+        console.error(`Error syncing Discord Kobold role for user ${discordUserId}:`, err);
         return;
       }
-
-      if (!res.ok && res.status !== 204) {
-        const errText = await res.text();
-        console.error(`Failed to ${args.isMember ? "grant" : "revoke"} Kobold Discord role for ${discordUserId}:`, errText);
-      } else {
-        console.log(`Successfully ${args.isMember ? "granted" : "revoked"} Kobold role (${KOBOLD_ROLE_ID}) for Discord user ${discordUserId}`);
-      }
-    } catch (err) {
-      console.error(`Error syncing Discord Kobold role for user ${discordUserId}:`, err);
     }
   },
 });

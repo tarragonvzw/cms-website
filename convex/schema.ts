@@ -46,6 +46,8 @@ export default defineSchema({
     date: v.string(),
     body: v.string(),
     location: v.optional(v.string()),
+    isCancelled: v.optional(v.boolean()),
+    cancelReason: v.optional(v.string()),
     groups: v.optional(
       v.array(
         v.object({

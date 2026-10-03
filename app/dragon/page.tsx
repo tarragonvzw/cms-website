@@ -110,6 +110,8 @@ export default function DragonAdminPage() {
     title: string;
     date: string;
     location?: string;
+    isCancelled?: boolean;
+    cancelReason?: string;
     body: string;
     groups: { name: string; description?: string; maxSlots: number }[];
   } | null>(null);
@@ -344,6 +346,8 @@ export default function DragonAdminPage() {
       date: dateStr,
       location: "Het Textielhuis, Kortrijk",
       body: "",
+      isCancelled: false,
+      cancelReason: "",
       groups: [],
     });
     setEventModalError(null);
@@ -359,6 +363,8 @@ export default function DragonAdminPage() {
       date: ev.date,
       location: ev.location || "Het Textielhuis, Kortrijk",
       body: ev.body || "",
+      isCancelled: Boolean(ev.isCancelled),
+      cancelReason: ev.cancelReason || "",
       groups: ev.groups ? [...ev.groups] : [],
     });
     setEventModalError(null);
@@ -398,6 +404,8 @@ export default function DragonAdminPage() {
         date: utcIso,
         location: editingEvent.location?.trim() || "Het Textielhuis, Kortrijk",
         body: editingEvent.body,
+        isCancelled: editingEvent.isCancelled,
+        cancelReason: editingEvent.cancelReason,
         groups: editingEvent.groups,
       });
       setEditingEvent(null);
@@ -1094,7 +1102,24 @@ export default function DragonAdminPage() {
                           </div>
                         </td>
                         <td style={{ fontWeight: 600, color: "var(--light)" }}>
-                          <div>{ev.title}</div>
+                          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                            <span>{ev.title}</span>
+                            {ev.isCancelled && (
+                              <span
+                                style={{
+                                  background: "rgba(239, 68, 68, 0.2)",
+                                  border: "1px solid rgba(239, 68, 68, 0.5)",
+                                  color: "#fca5a5",
+                                  fontSize: "0.7rem",
+                                  padding: "0.1rem 0.4rem",
+                                  borderRadius: "0.3rem",
+                                  fontWeight: 700,
+                                }}
+                              >
+                                {ev.cancelReason ? `CLOSED: ${ev.cancelReason}` : "CLOSED / CANCELLED"}
+                              </span>
+                            )}
+                          </div>
                           <div style={{ fontSize: "0.8rem", color: "var(--secondary)", fontWeight: 400, marginTop: "0.2rem" }}>
                             📍 {ev.location?.trim() || "Het Textielhuis, Kortrijk"}
                           </div>
@@ -1248,6 +1273,54 @@ export default function DragonAdminPage() {
                       })
                     }
                   />
+                </div>
+
+                {/* Closure / Cancellation Warning Section */}
+                <div
+                  style={{
+                    background: editingEvent.isCancelled ? "rgba(239, 68, 68, 0.12)" : "rgba(255, 255, 255, 0.03)",
+                    border: `1px solid ${editingEvent.isCancelled ? "rgba(239, 68, 68, 0.4)" : "rgba(255, 255, 255, 0.08)"}`,
+                    borderRadius: "0.6rem",
+                    padding: "1rem",
+                    marginBottom: "1rem",
+                    transition: "all 0.2s ease",
+                  }}
+                >
+                  <label style={{ display: "flex", alignItems: "center", gap: "0.6rem", cursor: "pointer", fontWeight: 600, color: editingEvent.isCancelled ? "#fca5a5" : "var(--light)" }}>
+                    <input
+                      type="checkbox"
+                      checked={Boolean(editingEvent.isCancelled)}
+                      onChange={(e) =>
+                        setEditingEvent({
+                          ...editingEvent,
+                          isCancelled: e.target.checked,
+                        })
+                      }
+                      style={{ width: "1.1rem", height: "1.1rem", cursor: "pointer" }}
+                    />
+                    <span>⚠️ Mark as Closed / No Event Exception (Warning)</span>
+                  </label>
+
+                  {editingEvent.isCancelled && (
+                    <div style={{ marginTop: "0.75rem" }}>
+                      <label htmlFor="event-cancel-reason" style={{ fontSize: "0.85rem", color: "var(--secondary)", display: "block", marginBottom: "0.3rem" }}>
+                        Closure / Warning Reason (shown in calendar & event list)
+                      </label>
+                      <input
+                        id="event-cancel-reason"
+                        type="text"
+                        className="dragon-form-input"
+                        placeholder="e.g. Het Textielhuis is closed (Geen evenement)"
+                        value={editingEvent.cancelReason || ""}
+                        onChange={(e) =>
+                          setEditingEvent({
+                            ...editingEvent,
+                            cancelReason: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                  )}
                 </div>
 
                 <div className="dragon-form-group">

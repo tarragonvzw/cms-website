@@ -560,6 +560,38 @@
     box-shadow: 0 4px 18px rgba(168, 85, 247, 0.28);
 }
 
+.daybox-cancelled-highlighted {
+    border: 1.5px solid rgba(239, 68, 68, 0.6) !important;
+    background: rgba(239, 68, 68, 0.1) !important;
+    box-shadow: 0 0 14px rgba(239, 68, 68, 0.15);
+    opacity: 1;
+}
+
+.daybox-cancelled-highlighted:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 18px rgba(239, 68, 68, 0.25);
+}
+
+.daybox-cancelled-badge {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    background: rgba(239, 68, 68, 0.25);
+    border: 1px solid rgba(239, 68, 68, 0.5);
+    color: #fca5a5;
+    border-radius: 0.4rem;
+    padding: 0.2rem 0.4rem;
+    font-weight: 700;
+    font-size: 0.68rem;
+    line-height: 1.2;
+    overflow: hidden;
+}
+
+.daybox-cancelled-badge .badge-warning-icon {
+    flex-shrink: 0;
+    color: #f87171;
+}
+
 .daybox-header {
     display: flex;
     flex-direction: column;
@@ -986,6 +1018,43 @@
 .compact-guild-row:hover .guild-arrow {
     color: #c084fc;
     transform: translate(2px, -2px);
+}
+
+/* Cancelled / Closure Event Rows */
+.compact-cancelled-row {
+    border-color: rgba(239, 68, 68, 0.35) !important;
+    background: rgba(239, 68, 68, 0.06) !important;
+}
+
+.compact-cancelled-row:hover {
+    background: rgba(239, 68, 68, 0.12) !important;
+    border-color: rgba(239, 68, 68, 0.6) !important;
+}
+
+.cancelled-date-capsule {
+    border-color: rgba(239, 68, 68, 0.6) !important;
+}
+
+.cancelled-date-capsule .compact-date-weekday {
+    color: #f87171 !important;
+}
+
+.cancelled-date-capsule .compact-date-month {
+    color: #fca5a5 !important;
+}
+
+.compact-warning-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.72rem;
+    color: #fca5a5;
+    background: rgba(239, 68, 68, 0.2);
+    border: 1px solid rgba(239, 68, 68, 0.5);
+    padding: 0.12rem 0.5rem;
+    border-radius: 1rem;
+    font-weight: 700;
+    white-space: nowrap;
 }
 
 @media (max-width: 600px) {

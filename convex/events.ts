@@ -81,6 +81,8 @@ export const saveEvent = mutation({
     date: v.string(),
     body: v.string(),
     location: v.optional(v.string()),
+    isCancelled: v.optional(v.boolean()),
+    cancelReason: v.optional(v.string()),
     groups: v.optional(v.array(groupValidator)),
   },
   handler: async (ctx, args) => {
@@ -118,6 +120,8 @@ export const saveEvent = mutation({
       date: args.date,
       body: args.body,
       location: args.location?.trim() ? args.location.trim() : undefined,
+      isCancelled: args.isCancelled || undefined,
+      cancelReason: args.cancelReason?.trim() || undefined,
       groups: args.groups && args.groups.length > 0 ? args.groups : undefined,
     };
 
@@ -289,3 +293,42 @@ export const cleanupOldEvents = mutation({
     };
   },
 });
+
+/**
+ * Direct seed/upsert for closure/exception events.
+ */
+export const upsertClosureEvent = mutation({
+  args: {
+    slug: v.string(),
+    title: v.string(),
+    date: v.string(),
+    body: v.string(),
+    location: v.optional(v.string()),
+    cancelReason: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("events")
+      .withIndex("by_slug", (q) => q.eq("slug", args.slug))
+      .unique();
+
+    const payload = {
+      slug: args.slug,
+      title: args.title,
+      date: args.date,
+      body: args.body,
+      location: args.location || "Het Textielhuis, Kortrijk",
+      isCancelled: true,
+      cancelReason: args.cancelReason,
+    };
+
+    if (existing) {
+      await ctx.db.patch(existing._id, payload);
+      return { action: "updated", id: existing._id };
+    } else {
+      const id = await ctx.db.insert("events", payload);
+      return { action: "inserted", id };
+    }
+  },
+});
+

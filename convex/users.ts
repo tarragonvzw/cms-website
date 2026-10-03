@@ -1,6 +1,13 @@
-import { mutation, query, internalAction, internalMutation } from "./_generated/server";
+import { mutation, query, internalAction, internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
+
+export const listAllUsersForDiscordSync = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db.query("users").collect();
+  },
+});
 
 /**
  * Store or update the authenticated user in the users table.
