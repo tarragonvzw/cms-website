@@ -6,6 +6,7 @@ import EventList from "../event-list";
 import SponsorList from '../sponsor-list';
 import DragonList from '../dragon-list';
 import Featurettes from '../Featurettes';
+import BecomeMemberButton from '../BecomeMemberButton';
 import DiscordIcon from '../../public/images/discord-icon.svg';
 import VoidLogo from '../../public/images/Void_Logo_WhiteTransparent.png';
 
@@ -53,9 +54,12 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
                     <span className="badge">Minipainting & LARP</span>
                     <span className="badge">Kortrijk Geek Community</span>
                 </div>
-                <Link href={`/${locale}/${locale === 'nl' ? 'Doneren' : 'Donate'}`} className="donate-button">
-                    {locale === 'nl' ? 'Steun Tarragon VZW' : 'Support Tarragon VZW'}
-                </Link>
+                <div className="infobox-actions">
+                    <Link href={`/${locale}/${locale === 'nl' ? 'Doneren' : 'Donate'}`} className="donate-button">
+                        {locale === 'nl' ? 'Steun Tarragon VZW' : 'Support Tarragon VZW'}
+                    </Link>
+                    <BecomeMemberButton locale={locale} />
+                </div>
             </div>
             <EventList locale={locale} />
             <Featurettes locale={locale} />
