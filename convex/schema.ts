@@ -44,6 +44,7 @@ export default defineSchema({
     slug: v.string(),
     title: v.string(),
     date: v.string(),
+    endDate: v.optional(v.string()),
     body: v.string(),
     location: v.optional(v.string()),
     isCancelled: v.optional(v.boolean()),

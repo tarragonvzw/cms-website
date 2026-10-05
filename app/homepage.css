@@ -430,6 +430,28 @@
     gap: 1.75rem;
     box-shadow: var(--shadow-lg);
     width: 100%;
+    box-sizing: border-box;
+}
+
+@media (max-width: 768px) {
+    .eventbox {
+        padding: 1.25rem 1rem;
+        gap: 1.25rem;
+        border-radius: 1rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .eventbox {
+        padding: 1rem 0.75rem;
+        gap: 1rem;
+    }
+}
+
+@media (max-width: 360px) {
+    .eventbox {
+        padding: 0.85rem 0.5rem;
+    }
 }
 
 .eventbox-header-title {
@@ -460,6 +482,16 @@
     font-family: var(--font-rockwell), serif;
 }
 
+@media (max-width: 600px) {
+    .eventbox-header-title h1 {
+        font-size: 1.25rem;
+    }
+    .eventbox-window-tag {
+        font-size: 0.72rem !important;
+        padding: 0.2rem 0.6rem !important;
+    }
+}
+
 .eventbox-window-tag {
     font-size: 0.78rem;
     font-weight: 700;
@@ -470,6 +502,7 @@
     border: 1px solid rgba(151, 183, 142, 0.25);
     padding: 0.3rem 0.75rem;
     border-radius: 2rem;
+    white-space: nowrap;
 }
 
 .eventbox-loading {
@@ -502,15 +535,23 @@
     width: 100%;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 860px) {
     .dayboxes-grid {
         grid-template-columns: repeat(3, 1fr);
+        gap: 0.5rem;
     }
 }
 
-@media (max-width: 480px) {
+@media (max-width: 520px) {
     .dayboxes-grid {
         grid-template-columns: repeat(2, 1fr);
+        gap: 0.45rem;
+    }
+}
+
+@media (max-width: 360px) {
+    .dayboxes-grid {
+        gap: 0.35rem;
     }
 }
 
@@ -525,6 +566,32 @@
     transition: all 0.2s ease;
     position: relative;
     box-sizing: border-box;
+    min-width: 0;
+    overflow: hidden;
+}
+
+@media (max-width: 520px) {
+    .daybox-card {
+        padding: 0.55rem 0.5rem;
+        min-height: 84px;
+        border-radius: 0.6rem;
+    }
+    .daybox-number {
+        font-size: 1.05rem !important;
+    }
+    .daybox-weekday {
+        font-size: 0.7rem !important;
+    }
+}
+
+@media (max-width: 360px) {
+    .daybox-card {
+        padding: 0.45rem 0.4rem;
+        min-height: 78px;
+    }
+    .daybox-number {
+        font-size: 0.95rem !important;
+    }
 }
 
 .daybox-default {
@@ -645,6 +712,8 @@
     display: flex;
     flex-direction: column;
     gap: 0.2rem;
+    min-width: 0;
+    width: 100%;
 }
 
 .daybox-event-badge {
@@ -659,6 +728,8 @@
     font-size: 0.68rem;
     line-height: 1.2;
     overflow: hidden;
+    min-width: 0;
+    box-sizing: border-box;
 }
 
 .badge-sparkle {
@@ -669,6 +740,8 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    min-width: 0;
+    flex: 1;
 }
 
 .daybox-more-count {
@@ -1057,35 +1130,233 @@
     white-space: nowrap;
 }
 
+/* Multi-Day Event Specifics */
+.daybox-top-badges {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    min-height: 14px;
+}
+
+.daybox-multiday-phase-tag {
+    font-size: 0.58rem;
+    font-weight: 800;
+    background: rgba(56, 189, 248, 0.18);
+    border: 1px solid rgba(56, 189, 248, 0.45);
+    color: #7dd3fc;
+    border-radius: 0.25rem;
+    padding: 0.05rem 0.3rem;
+    letter-spacing: 0.04em;
+    line-height: 1;
+    margin-left: auto;
+}
+
+.daybox-multiday-highlighted {
+    border: 1.5px solid #38bdf8 !important;
+    background: rgba(56, 189, 248, 0.1) !important;
+    box-shadow: 0 0 14px rgba(56, 189, 248, 0.16);
+}
+
+.daybox-multiday-highlighted:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 18px rgba(56, 189, 248, 0.26);
+}
+
+.daybox-multiday-pill {
+    margin-left: auto;
+    font-size: 0.58rem;
+    font-weight: 800;
+    background: rgba(0, 0, 0, 0.28);
+    color: #1a221d;
+    border-radius: 0.2rem;
+    padding: 0.04rem 0.25rem;
+    flex-shrink: 0;
+    line-height: 1;
+}
+
+.compact-multiday-row {
+    border-color: rgba(56, 189, 248, 0.22);
+}
+
+.compact-multiday-row:hover {
+    border-color: rgba(56, 189, 248, 0.4);
+    background: rgba(56, 189, 248, 0.08);
+}
+
+.multiday-date-capsule {
+    border-color: rgba(56, 189, 248, 0.5) !important;
+    background: linear-gradient(180deg, rgba(56, 189, 248, 0.15) 0%, rgba(0, 0, 0, 0.45) 100%) !important;
+}
+
+.multiday-date-capsule .compact-date-weekday {
+    color: #7dd3fc !important;
+    font-size: 0.54rem !important;
+    letter-spacing: 0.02em;
+}
+
+.multiday-date-day {
+    font-size: 0.92rem !important;
+    white-space: nowrap;
+}
+
+.multiday-date-capsule .compact-date-month {
+    color: #bae6fd !important;
+    font-size: 0.58rem !important;
+}
+
+.compact-multiday-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.72rem;
+    color: #7dd3fc;
+    background: rgba(56, 189, 248, 0.15);
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    padding: 0.12rem 0.5rem;
+    border-radius: 1rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.compact-ongoing-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.68rem;
+    color: #4ade80;
+    background: rgba(34, 197, 94, 0.15);
+    border: 1px solid rgba(34, 197, 94, 0.45);
+    padding: 0.12rem 0.55rem;
+    border-radius: 1rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+}
+
+.ongoing-pulse-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #22c55e;
+    box-shadow: 0 0 6px #22c55e;
+    animation: ongoing-pulse 1.8s infinite ease-in-out;
+}
+
+@keyframes ongoing-pulse {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.4);
+        opacity: 0.5;
+    }
+}
+
 @media (max-width: 600px) {
     .compact-event-row {
-        gap: 0.75rem !important;
-        padding: 0.6rem 0.75rem;
+        gap: 0.65rem !important;
+        padding: 0.6rem 0.65rem !important;
+        border-radius: 0.65rem;
     }
 
     .compact-date-capsule {
-        width: 50px !important;
-        min-width: 50px !important;
-        max-width: 50px !important;
-        height: 50px !important;
-        padding: 0.15rem !important;
+        width: 52px !important;
+        min-width: 52px !important;
+        max-width: 52px !important;
+        height: 52px !important;
+        padding: 0.15rem 0.1rem !important;
+        border-radius: 0.45rem;
     }
 
     .compact-date-day {
         font-size: 1.05rem;
     }
 
-    .compact-date-weekday,
+    .multiday-date-day {
+        font-size: 0.76rem !important;
+        letter-spacing: -0.02em;
+    }
+
+    .compact-date-weekday {
+        font-size: 0.52rem !important;
+    }
+
     .compact-date-month {
-        font-size: 0.58rem;
+        font-size: 0.54rem !important;
     }
 
     .compact-event-title {
-        font-size: 0.95rem;
+        font-size: 0.92rem;
+        white-space: normal;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        line-height: 1.25;
+    }
+
+    .compact-title-row {
+        gap: 0.35rem;
+        flex-wrap: wrap;
+    }
+
+    .compact-slots-badge,
+    .compact-multiday-badge,
+    .compact-ongoing-badge,
+    .compact-warning-badge {
+        font-size: 0.62rem;
+        padding: 0.08rem 0.38rem;
     }
 
     .compact-event-meta {
-        font-size: 0.75rem;
-        gap: 0.5rem;
+        font-size: 0.74rem;
+        gap: 0.35rem 0.55rem;
+        flex-wrap: wrap;
+    }
+
+    .compact-meta-location {
+        white-space: normal;
+    }
+
+    .compact-event-arrow {
+        display: none !important;
+    }
+}
+
+@media (max-width: 360px) {
+    .compact-event-row {
+        gap: 0.45rem !important;
+        padding: 0.45rem !important;
+    }
+
+    .compact-date-capsule {
+        width: 44px !important;
+        min-width: 44px !important;
+        max-width: 44px !important;
+        height: 46px !important;
+    }
+
+    .compact-date-day {
+        font-size: 0.92rem;
+    }
+
+    .multiday-date-day {
+        font-size: 0.68rem !important;
+    }
+
+    .compact-date-weekday,
+    .compact-date-month {
+        font-size: 0.48rem !important;
+    }
+
+    .compact-event-title {
+        font-size: 0.85rem;
+    }
+
+    .compact-event-meta {
+        font-size: 0.7rem;
     }
 }

@@ -7,6 +7,12 @@ import { useUser } from "@clerk/nextjs";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { updateUserRoleAction, updateUserMetadataAction } from "../actions/admin";
+import {
+  utcIsoToBrusselsLocal,
+  brusselsLocalToUtcIso,
+  isMultiDayEvent,
+  getEventDurationDays,
+} from "../../lib/event-dates";
 
 type Role = "user" | "member" | "dragon";
 
@@ -25,63 +31,6 @@ interface AdminUser {
   voidmaster?: boolean;
   voidManager?: boolean;
   createdAt?: number;
-}
-
-/**
- * Converts a UTC ISO string to "YYYY-MM-DDTHH:MM" in Europe/Brussels (24-hour time).
- */
-function utcIsoToBrusselsLocal(isoStr: string): string {
-  if (!isoStr) return "";
-  const d = new Date(isoStr);
-  if (isNaN(d.getTime())) return "";
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/Brussels",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).formatToParts(d);
-  const m: Record<string, string> = {};
-  parts.forEach((p) => (m[p.type] = p.value));
-  return `${m.year}-${m.month}-${m.day}T${m.hour}:${m.minute}`;
-}
-
-/**
- * Converts a local "YYYY-MM-DDTHH:MM" input string representing Europe/Brussels
- * time into a precise UTC ISO string.
- */
-function brusselsLocalToUtcIso(localDatetimeStr: string): string {
-  if (!localDatetimeStr) return "";
-  const [datePart, timePart] = localDatetimeStr.split("T");
-  if (!datePart || !timePart) return "";
-  const [year, month, day] = datePart.split("-").map(Number);
-  const [hour, minute] = timePart.split(":").map(Number);
-  const guessUtc = Date.UTC(year, month - 1, day, hour, minute);
-
-  const getOffset = (utcMs: number) => {
-    const d = new Date(utcMs);
-    const str = d.toLocaleString("en-US", {
-      timeZone: "Europe/Brussels",
-      hour12: false,
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-    });
-    const [dPart, tPart] = str.split(", ");
-    const [m, dy, y] = dPart.split("/");
-    const [h, mi, s] = tPart.split(":");
-    const asUtc = Date.UTC(Number(y), Number(m) - 1, Number(dy), h === "24" ? 0 : Number(h), Number(mi), Number(s));
-    return asUtc - utcMs;
-  };
-
-  const offset = getOffset(guessUtc);
-  const actualUtc = guessUtc - offset;
-  return new Date(actualUtc).toISOString();
 }
 
 export default function DragonAdminPage() {
@@ -109,6 +58,7 @@ export default function DragonAdminPage() {
     slug: string;
     title: string;
     date: string;
+    endDate?: string;
     location?: string;
     isCancelled?: boolean;
     cancelReason?: string;
@@ -116,6 +66,7 @@ export default function DragonAdminPage() {
     groups: { name: string; description?: string; maxSlots: number }[];
   } | null>(null);
   const [eventDateLocal, setEventDateLocal] = useState("");
+  const [eventEndDateLocal, setEventEndDateLocal] = useState("");
   const [savingEvent, setSavingEvent] = useState(false);
   const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
   const [eventModalError, setEventModalError] = useState<string | null>(null);
@@ -340,10 +291,12 @@ export default function DragonAdminPage() {
     const slugDate = todayDate.replace(/-/g, "");
 
     setEventDateLocal(defaultLocal);
+    setEventEndDateLocal("");
     setEditingEvent({
       slug: `${slugDate}_Event`,
       title: "",
       date: dateStr,
+      endDate: undefined,
       location: "Het Textielhuis, Kortrijk",
       body: "",
       isCancelled: false,
@@ -355,12 +308,15 @@ export default function DragonAdminPage() {
 
   const handleOpenEditEvent = (ev: any) => {
     const localStr = utcIsoToBrusselsLocal(ev.date) || "";
+    const endLocalStr = ev.endDate ? utcIsoToBrusselsLocal(ev.endDate) : "";
     setEventDateLocal(localStr);
+    setEventEndDateLocal(endLocalStr);
     setEditingEvent({
       _id: ev._id,
       slug: ev.slug,
       title: ev.title,
       date: ev.date,
+      endDate: ev.endDate,
       location: ev.location || "Het Textielhuis, Kortrijk",
       body: ev.body || "",
       isCancelled: Boolean(ev.isCancelled),
@@ -393,6 +349,19 @@ export default function DragonAdminPage() {
       return;
     }
 
+    let endUtcIso: string | undefined = undefined;
+    if (eventEndDateLocal.trim()) {
+      endUtcIso = brusselsLocalToUtcIso(eventEndDateLocal.trim());
+      if (!endUtcIso) {
+        setEventModalError("Invalid End Date or Time format.");
+        return;
+      }
+      if (new Date(endUtcIso).getTime() < new Date(utcIso).getTime()) {
+        setEventModalError("End date & time must be after the start date & time.");
+        return;
+      }
+    }
+
     setSavingEvent(true);
     setEventModalError(null);
 
@@ -402,6 +371,7 @@ export default function DragonAdminPage() {
         slug: editingEvent.slug,
         title: editingEvent.title,
         date: utcIso,
+        endDate: endUtcIso,
         location: editingEvent.location?.trim() || "Het Textielhuis, Kortrijk",
         body: editingEvent.body,
         isCancelled: editingEvent.isCancelled,
@@ -1068,7 +1038,11 @@ export default function DragonAdminPage() {
                 <tbody>
                   {filteredEvents.map((ev) => {
                     const evDate = new Date(ev.date);
-                    const formattedDate = isNaN(evDate.getTime())
+                    const isMulti = isMultiDayEvent(ev.date, ev.endDate);
+                    const durationDays = getEventDurationDays(ev.date, ev.endDate);
+                    const evEndDate = ev.endDate ? new Date(ev.endDate) : null;
+
+                    let formattedDate = isNaN(evDate.getTime())
                       ? ev.date
                       : evDate.toLocaleDateString("nl-BE", {
                           timeZone: "Europe/Brussels",
@@ -1076,7 +1050,8 @@ export default function DragonAdminPage() {
                           month: "short",
                           year: "numeric",
                         });
-                    const formattedTime = isNaN(evDate.getTime())
+
+                    let formattedTime = isNaN(evDate.getTime())
                       ? ""
                       : evDate.toLocaleTimeString("en-GB", {
                           timeZone: "Europe/Brussels",
@@ -1084,6 +1059,51 @@ export default function DragonAdminPage() {
                           minute: "2-digit",
                           hour12: false,
                         });
+
+                    if (isMulti && evEndDate && !isNaN(evEndDate.getTime())) {
+                      const startDayMo = evDate.toLocaleDateString("nl-BE", {
+                        timeZone: "Europe/Brussels",
+                        day: "numeric",
+                        month: "short",
+                      });
+                      const endDayMoYear = evEndDate.toLocaleDateString("nl-BE", {
+                        timeZone: "Europe/Brussels",
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      });
+                      formattedDate = `${startDayMo} – ${endDayMoYear}`;
+
+                      const startWd = evDate.toLocaleDateString("en-US", {
+                        timeZone: "Europe/Brussels",
+                        weekday: "short",
+                      });
+                      const endWd = evEndDate.toLocaleDateString("en-US", {
+                        timeZone: "Europe/Brussels",
+                        weekday: "short",
+                      });
+                      const startTime = evDate.toLocaleTimeString("en-GB", {
+                        timeZone: "Europe/Brussels",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        hour12: false,
+                      });
+                      const endTime = evEndDate.toLocaleTimeString("en-GB", {
+                        timeZone: "Europe/Brussels",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        hour12: false,
+                      });
+                      formattedTime = `${startWd} ${startTime} → ${endWd} ${endTime}`;
+                    } else if (evEndDate && !isNaN(evEndDate.getTime())) {
+                      const endTime = evEndDate.toLocaleTimeString("en-GB", {
+                        timeZone: "Europe/Brussels",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        hour12: false,
+                      });
+                      formattedTime = `${formattedTime} – ${endTime}`;
+                    }
 
                     const totalSlots = ev.groups?.reduce((acc, g) => acc + g.maxSlots, 0) || 0;
 
@@ -1095,7 +1115,24 @@ export default function DragonAdminPage() {
                       >
                         <td style={{ color: "var(--secondary)", whiteSpace: "nowrap" }}>
                           <div style={{ display: "flex", flexDirection: "column", gap: "0.2rem" }}>
-                            <span style={{ fontWeight: 600, color: "var(--light)" }}>{formattedDate}</span>
+                            <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                              <span style={{ fontWeight: 600, color: "var(--light)" }}>{formattedDate}</span>
+                              {isMulti && (
+                                <span
+                                  style={{
+                                    background: "rgba(56, 189, 248, 0.15)",
+                                    border: "1px solid rgba(56, 189, 248, 0.4)",
+                                    color: "#7dd3fc",
+                                    fontSize: "0.68rem",
+                                    fontWeight: 700,
+                                    padding: "0.05rem 0.35rem",
+                                    borderRadius: "0.25rem",
+                                  }}
+                                >
+                                  {durationDays}d
+                                </span>
+                              )}
+                            </div>
                             <span style={{ fontSize: "0.82rem", color: "var(--secondary)", fontWeight: 500 }}>
                               {formattedTime ? `⏰ ${formattedTime}` : "—"}
                             </span>
@@ -1226,7 +1263,7 @@ export default function DragonAdminPage() {
                   />
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+                <div className="dragon-form-row-2col">
                   <div className="dragon-form-group">
                     <label htmlFor="event-slug">Slug (Filename/URL) *</label>
                     <input
@@ -1246,7 +1283,26 @@ export default function DragonAdminPage() {
                   </div>
 
                   <div className="dragon-form-group">
-                    <label htmlFor="event-date">Date & Start Time (Brussels 24h) *</label>
+                    <label htmlFor="event-location">Location</label>
+                    <input
+                      id="event-location"
+                      type="text"
+                      className="dragon-form-input"
+                      placeholder="e.g. Het Textielhuis, Kortrijk"
+                      value={editingEvent.location ?? "Het Textielhuis, Kortrijk"}
+                      onChange={(e) =>
+                        setEditingEvent({
+                          ...editingEvent,
+                          location: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div className="dragon-form-row-2col">
+                  <div className="dragon-form-group">
+                    <label htmlFor="event-date">Start Date & Time (Brussels 24h) *</label>
                     <input
                       id="event-date"
                       type="datetime-local"
@@ -1256,23 +1312,47 @@ export default function DragonAdminPage() {
                       onChange={(e) => setEventDateLocal(e.target.value)}
                     />
                   </div>
-                </div>
 
-                <div className="dragon-form-group">
-                  <label htmlFor="event-location">Location</label>
-                  <input
-                    id="event-location"
-                    type="text"
-                    className="dragon-form-input"
-                    placeholder="e.g. Het Textielhuis, Kortrijk"
-                    value={editingEvent.location ?? "Het Textielhuis, Kortrijk"}
-                    onChange={(e) =>
-                      setEditingEvent({
-                        ...editingEvent,
-                        location: e.target.value,
-                      })
-                    }
-                  />
+                  <div className="dragon-form-group">
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <label htmlFor="event-end-date" style={{ margin: 0 }}>
+                        End Date & Time (Brussels 24h)
+                      </label>
+                      {eventEndDateLocal && (
+                        <button
+                          type="button"
+                          onClick={() => setEventEndDateLocal("")}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            color: "#f87171",
+                            fontSize: "0.75rem",
+                            cursor: "pointer",
+                            padding: 0,
+                            textDecoration: "underline",
+                          }}
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
+                    <input
+                      id="event-end-date"
+                      type="datetime-local"
+                      className="dragon-form-input"
+                      value={eventEndDateLocal}
+                      onChange={(e) => setEventEndDateLocal(e.target.value)}
+                    />
+                    {eventEndDateLocal && (
+                      <span style={{ fontSize: "0.78rem", color: "var(--secondary)", marginTop: "0.25rem", display: "block" }}>
+                        {eventDateLocal && eventEndDateLocal < eventDateLocal
+                          ? "⚠️ End time cannot be before start time"
+                          : eventDateLocal && eventDateLocal.slice(0, 10) !== eventEndDateLocal.slice(0, 10)
+                          ? `🗓️ Multi-day event (${getEventDurationDays(brusselsLocalToUtcIso(eventDateLocal), brusselsLocalToUtcIso(eventEndDateLocal))} days)`
+                          : "Single-day event with designated end time"}
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 {/* Closure / Cancellation Warning Section */}

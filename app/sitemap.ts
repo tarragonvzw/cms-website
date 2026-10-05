@@ -31,8 +31,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const now = new Date();
 
     convexEvents?.forEach((ev) => {
-      const eventDate = new Date(ev.date || 0);
-      const isPast = eventDate < now;
+      const eventEnd = ev.endDate ? new Date(ev.endDate) : new Date(ev.date || 0);
+      const isPast = eventEnd < now;
 
       events.push({
         url: `${baseUrl}/event/${ev.slug}`,

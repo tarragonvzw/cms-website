@@ -5,8 +5,16 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useQuery } from 'convex/react';
 import { api } from '../convex/_generated/api';
-import { Calendar as CalendarIcon, Clock, ChevronRight, Users, Sparkles, Compass } from 'lucide-react';
+import { Calendar as CalendarIcon, CalendarDays, Clock, ChevronRight, Users, Sparkles, Compass } from 'lucide-react';
 import VoidLogo from '../public/images/Void_Logo_WhiteTransparent.png';
+import {
+  isMultiDayEvent,
+  getEventSpannedDateKeys,
+  getEventDurationDays,
+  getEventStatus,
+  formatCompactCapsule,
+  formatEventMetaTime,
+} from '../lib/event-dates';
 
 interface EventListProps {
   locale?: string;
@@ -124,23 +132,31 @@ export default function EventList(props: EventListProps = {}) {
     limit: 100,
   });
 
-  // Map Convex events to date keys (YYYY-MM-DD in Europe/Brussels)
+  // Map Convex events to date keys (YYYY-MM-DD in Europe/Brussels), supporting multi-day spans
   const eventsByDate = useMemo(() => {
     const map = new Map<string, any[]>();
     if (!futureEvents) return map;
 
     for (const ev of futureEvents) {
-      const d = new Date(ev.date);
-      const parts = new Intl.DateTimeFormat('en-CA', {
-        timeZone: 'Europe/Brussels',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-      }).format(d);
-      
-      const list = map.get(parts) || [];
-      list.push(ev);
-      map.set(parts, list);
+      const isMulti = isMultiDayEvent(ev.date, ev.endDate);
+      const spannedKeys = getEventSpannedDateKeys(ev.date, ev.endDate);
+
+      spannedKeys.forEach((dateKey, index) => {
+        const list = map.get(dateKey) || [];
+        list.push({
+          ...ev,
+          multiDayInfo: isMulti
+            ? {
+                dayIndex: index + 1,
+                totalDays: spannedKeys.length,
+                isStart: index === 0,
+                isEnd: index === spannedKeys.length - 1,
+                isMiddle: index > 0 && index < spannedKeys.length - 1,
+              }
+            : null,
+        });
+        map.set(dateKey, list);
+      });
     }
     return map;
   }, [futureEvents]);
@@ -220,6 +236,7 @@ export default function EventList(props: EventListProps = {}) {
             const hasGuildSession = daySessions.length > 0;
             const hasAnyActivity = hasActiveConvexEvent || isOpenGameNight || hasGuildSession || Boolean(cancelledEvent);
             const firstActiveEvent = activeEvents[0];
+            const isMultiDayActive = Boolean(firstActiveEvent?.multiDayInfo);
 
             return (
               <div
@@ -228,7 +245,9 @@ export default function EventList(props: EventListProps = {}) {
                   cancelledEvent
                     ? 'daybox-cancelled-highlighted'
                     : hasActiveConvexEvent || isOpenGameNight
-                    ? 'daybox-highlighted'
+                    ? isMultiDayActive
+                      ? 'daybox-highlighted daybox-multiday-highlighted'
+                      : 'daybox-highlighted'
                     : hasGuildSession
                     ? 'daybox-guild-highlighted'
                     : 'daybox-default'
@@ -236,7 +255,21 @@ export default function EventList(props: EventListProps = {}) {
               >
                 {/* Header with day name and date */}
                 <div className="daybox-header">
-                  {day.isToday && <span className="today-badge">TODAY</span>}
+                  <div className="daybox-top-badges">
+                    {day.isToday && <span className="today-badge">TODAY</span>}
+                    {firstActiveEvent?.multiDayInfo && (
+                      <span
+                        className="daybox-multiday-phase-tag"
+                        title={`Day ${firstActiveEvent.multiDayInfo.dayIndex} of ${firstActiveEvent.multiDayInfo.totalDays}`}
+                      >
+                        {firstActiveEvent.multiDayInfo.isStart
+                          ? 'DAY 1'
+                          : firstActiveEvent.multiDayInfo.isEnd
+                          ? 'FINAL'
+                          : `DAY ${firstActiveEvent.multiDayInfo.dayIndex}`}
+                      </span>
+                    )}
+                  </div>
                   <div className="daybox-date-row">
                     <span className="daybox-weekday">{day.weekdayShort}</span>
                     <span className="daybox-number">{day.dayNumber}</span>
@@ -261,11 +294,27 @@ export default function EventList(props: EventListProps = {}) {
                     <Link
                       href={`/event/${firstActiveEvent.slug}`}
                       className="daybox-event-link"
-                      title={firstActiveEvent.title}
+                      title={`${firstActiveEvent.title}${
+                        firstActiveEvent.multiDayInfo
+                          ? ` (Day ${firstActiveEvent.multiDayInfo.dayIndex} of ${firstActiveEvent.multiDayInfo.totalDays})`
+                          : ''
+                      }`}
                     >
-                      <div className="daybox-event-badge">
+                      <div
+                        className={`daybox-event-badge ${
+                          firstActiveEvent.multiDayInfo ? 'daybox-multiday-badge' : ''
+                        }`}
+                      >
                         <Sparkles size={11} className="badge-sparkle" />
                         <span className="daybox-event-name">{firstActiveEvent.title}</span>
+                        {firstActiveEvent.multiDayInfo && (
+                          <span
+                            className="daybox-multiday-pill"
+                            title={`Day ${firstActiveEvent.multiDayInfo.dayIndex} of ${firstActiveEvent.multiDayInfo.totalDays}`}
+                          >
+                            {firstActiveEvent.multiDayInfo.dayIndex}/{firstActiveEvent.multiDayInfo.totalDays}
+                          </span>
+                        )}
                       </div>
                       {activeEvents.length > 1 && (
                         <span className="daybox-more-count">
@@ -355,26 +404,6 @@ export default function EventList(props: EventListProps = {}) {
 
           <div className="compact-events-list">
             {upcomingEvents.map((event) => {
-              const evDate = new Date(event.date);
-              const weekday = evDate.toLocaleDateString('en-US', {
-                timeZone: 'Europe/Brussels',
-                weekday: 'short',
-              });
-              const dayNum = evDate.toLocaleDateString('default', {
-                timeZone: 'Europe/Brussels',
-                day: 'numeric',
-              });
-              const monthShort = evDate.toLocaleDateString('en-US', {
-                timeZone: 'Europe/Brussels',
-                month: 'short',
-              });
-              const timeStr = evDate.toLocaleTimeString('en-GB', {
-                timeZone: 'Europe/Brussels',
-                hour: '2-digit',
-                minute: '2-digit',
-                hour12: false,
-              });
-
               const groups = event.groups || [];
               const hasGroups = groups.length > 0;
               const totalSlots = hasGroups
@@ -382,18 +411,32 @@ export default function EventList(props: EventListProps = {}) {
                 : 0;
 
               const isCancelled = Boolean(event.isCancelled);
+              const isMulti = isMultiDayEvent(event.date, event.endDate);
+              const capsule = formatCompactCapsule(event.date, event.endDate);
+              const timeMeta = formatEventMetaTime(event.date, event.endDate);
+              const durationDays = getEventDurationDays(event.date, event.endDate);
+              const status = getEventStatus(event.date, event.endDate, nowDate);
 
               return (
                 <Link
                   key={`convex-${event._id}`}
                   href={`/event/${event.slug}`}
-                  className={`compact-event-row ${isCancelled ? 'compact-cancelled-row' : ''}`}
+                  className={`compact-event-row ${isCancelled ? 'compact-cancelled-row' : ''} ${
+                    isMulti ? 'compact-multiday-row' : ''
+                  }`}
                 >
                   {/* Date Capsule (Placed cleanly on Left) */}
-                  <div className={`compact-date-capsule ${isCancelled ? 'cancelled-date-capsule' : ''}`}>
-                    <span className="compact-date-weekday">{weekday}</span>
-                    <span className="compact-date-day">{dayNum}</span>
-                    <span className="compact-date-month">{monthShort}</span>
+                  <div
+                    className={`compact-date-capsule ${isCancelled ? 'cancelled-date-capsule' : ''} ${
+                      isMulti ? 'multiday-date-capsule' : ''
+                    }`}
+                    title={isMulti ? `Multi-day event (${durationDays} days)` : undefined}
+                  >
+                    <span className="compact-date-weekday">{capsule.weekday}</span>
+                    <span className={`compact-date-day ${isMulti ? 'multiday-date-day' : ''}`}>
+                      {capsule.day}
+                    </span>
+                    <span className="compact-date-month">{capsule.month}</span>
                   </div>
 
                   {/* Event Details */}
@@ -406,20 +449,36 @@ export default function EventList(props: EventListProps = {}) {
                         <span className="compact-warning-badge">
                           {event.cancelReason || 'Closed / No Event'}
                         </span>
-                      ) : hasGroups ? (
-                        <span className="compact-slots-badge">
-                          <Users size={12} />
-                          <span>
-                            {groups.length} {groups.length === 1 ? 'table' : 'tables'} ({totalSlots} {totalSlots === 1 ? 'slot' : 'slots'})
-                          </span>
-                        </span>
-                      ) : null}
+                      ) : (
+                        <>
+                          {status === 'ongoing' && (
+                            <span className="compact-ongoing-badge" title="Event is currently happening!">
+                              <span className="ongoing-pulse-dot" />
+                              <span>Happening Now</span>
+                            </span>
+                          )}
+                          {isMulti && (
+                            <span className="compact-multiday-badge" title={`Spans ${durationDays} days`}>
+                              <CalendarDays size={12} />
+                              <span>{durationDays} Days</span>
+                            </span>
+                          )}
+                          {hasGroups ? (
+                            <span className="compact-slots-badge">
+                              <Users size={12} />
+                              <span>
+                                {groups.length} {groups.length === 1 ? 'table' : 'tables'} ({totalSlots} {totalSlots === 1 ? 'slot' : 'slots'})
+                              </span>
+                            </span>
+                          ) : null}
+                        </>
+                      )}
                     </div>
 
                     <div className="compact-event-meta">
                       <span className="compact-meta-time" style={isCancelled ? { color: '#f87171' } : undefined}>
                         <Clock size={13} />
-                        <span>{isCancelled ? 'Cancelled / Closed' : timeStr}</span>
+                        <span>{isCancelled ? 'Cancelled / Closed' : timeMeta}</span>
                       </span>
                       <span className="compact-meta-location">
                         {event.location?.trim() || "Het Textielhuis, Kortrijk"}

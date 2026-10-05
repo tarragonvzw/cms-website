@@ -1300,4 +1300,18 @@ blockquote strong {
     }
 }
 
+/* Responsive Dragon Form Rows */
+.dragon-form-row-2col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+@media (max-width: 640px) {
+    .dragon-form-row-2col {
+        grid-template-columns: 1fr !important;
+        gap: 0.75rem !important;
+    }
+}
+
 

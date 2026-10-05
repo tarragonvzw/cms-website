@@ -21,18 +21,30 @@ export async function generateMetadata({
       return { title: "Tarragon Event | D&D Kortrijk" };
     }
 
-    const date = new Date(event.date);
-    const formattedDate = isNaN(date.getTime())
-      ? event.date
-      : date.toLocaleDateString("nl-BE", {
-          day: "numeric",
-          month: "long",
-          year: "numeric",
-        });
+    const isMulti = event.endDate && event.date.slice(0, 10) !== event.endDate.slice(0, 10);
+    let dateText: string;
+
+    if (isMulti && event.endDate) {
+      const startDate = new Date(event.date);
+      const endDate = new Date(event.endDate);
+      const startStr = startDate.toLocaleDateString("nl-BE", { day: "numeric", month: "long" });
+      const endStr = endDate.toLocaleDateString("nl-BE", { day: "numeric", month: "long", year: "numeric" });
+      dateText = `van ${startStr} t/m ${endStr}`;
+    } else {
+      const date = new Date(event.date);
+      const formattedDate = isNaN(date.getTime())
+        ? event.date
+        : date.toLocaleDateString("nl-BE", {
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+          });
+      dateText = `op ${formattedDate}`;
+    }
 
     return {
       title: `${event.title} | D&D & Boardgames Kortrijk`,
-      description: `Kom naar ${event.title} op ${formattedDate} bij Tarragon Kortrijk. De gezelligste D&D en boardgame community van West-Vlaanderen!`,
+      description: `Kom naar ${event.title} ${dateText} bij Tarragon Kortrijk. De gezelligste D&D en boardgame community van West-Vlaanderen!`,
       alternates: {
         canonical: `/event/${slug}`,
       },

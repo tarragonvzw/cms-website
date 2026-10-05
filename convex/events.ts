@@ -37,22 +37,39 @@ export const getUpcomingEvents = query({
     const fromDate = args.fromDate ?? new Date().toISOString();
     const limit = args.limit ?? 50;
 
+    // To catch ongoing multi-day events that started prior to fromDate,
+    // look back 30 days before fromDate on the "by_date" index.
+    const fromTime = new Date(fromDate).getTime();
+    const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+    const searchFromDate = new Date(fromTime - thirtyDaysMs).toISOString();
+
+    let candidates;
     if (args.toDate) {
       const toDate = args.toDate;
-      return await ctx.db
+      candidates = await ctx.db
         .query("events")
         .withIndex("by_date", (q) =>
-          q.gte("date", fromDate).lte("date", toDate)
+          q.gte("date", searchFromDate).lte("date", toDate)
         )
         .order("asc")
-        .take(limit);
+        .take(limit + 50);
+    } else {
+      candidates = await ctx.db
+        .query("events")
+        .withIndex("by_date", (q) => q.gte("date", searchFromDate))
+        .order("asc")
+        .take(limit + 50);
     }
 
-    return await ctx.db
-      .query("events")
-      .withIndex("by_date", (q) => q.gte("date", fromDate))
-      .order("asc")
-      .take(limit);
+    // Filter events: either starts >= fromDate, or is an ongoing multi-day event with endDate >= fromDate
+    const events = candidates.filter((ev) => {
+      const eventEnd = ev.endDate ?? ev.date;
+      if (eventEnd < fromDate) return false;
+      if (args.toDate && ev.date > args.toDate) return false;
+      return true;
+    });
+
+    return events.slice(0, limit);
   },
 });
 
@@ -79,6 +96,7 @@ export const saveEvent = mutation({
     slug: v.string(),
     title: v.string(),
     date: v.string(),
+    endDate: v.optional(v.string()),
     body: v.string(),
     location: v.optional(v.string()),
     isCancelled: v.optional(v.boolean()),
@@ -118,6 +136,7 @@ export const saveEvent = mutation({
       slug: normalizedSlug,
       title: args.title.trim(),
       date: args.date,
+      endDate: args.endDate || undefined,
       body: args.body,
       location: args.location?.trim() ? args.location.trim() : undefined,
       isCancelled: args.isCancelled || undefined,
@@ -181,6 +200,7 @@ export const importEventsBatch = mutation({
         slug: v.string(),
         title: v.string(),
         date: v.string(),
+        endDate: v.optional(v.string()),
         body: v.string(),
         location: v.optional(v.string()),
         groups: v.optional(v.array(groupValidator)),
@@ -201,6 +221,7 @@ export const importEventsBatch = mutation({
         await ctx.db.patch(existing._id, {
           title: item.title,
           date: item.date,
+          endDate: item.endDate,
           body: item.body,
           location: item.location,
           groups: item.groups,
@@ -211,6 +232,7 @@ export const importEventsBatch = mutation({
           slug: item.slug,
           title: item.title,
           date: item.date,
+          endDate: item.endDate,
           body: item.body,
           location: item.location,
           groups: item.groups,
@@ -237,6 +259,7 @@ export const removeSignupUrlField = mutation({
           slug: ev.slug,
           title: ev.title,
           date: ev.date,
+          endDate: ev.endDate,
           body: ev.body,
           groups: ev.groups,
         });
@@ -272,6 +295,12 @@ export const cleanupOldEvents = mutation({
     let deletedSignupsCount = 0;
 
     for (const ev of oldEvents) {
+      // Do not clean up an event if its endDate is still newer than the cutoff
+      const eventEnd = ev.endDate ?? ev.date;
+      if (eventEnd >= cutoffIso!) {
+        continue;
+      }
+
       const signups = await ctx.db
         .query("signups")
         .withIndex("by_event", (q) => q.eq("eventSlug", ev.slug))
@@ -302,6 +331,7 @@ export const upsertClosureEvent = mutation({
     slug: v.string(),
     title: v.string(),
     date: v.string(),
+    endDate: v.optional(v.string()),
     body: v.string(),
     location: v.optional(v.string()),
     cancelReason: v.string(),
@@ -316,6 +346,7 @@ export const upsertClosureEvent = mutation({
       slug: args.slug,
       title: args.title,
       date: args.date,
+      endDate: args.endDate,
       body: args.body,
       location: args.location || "Het Textielhuis, Kortrijk",
       isCancelled: true,

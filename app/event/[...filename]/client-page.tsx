@@ -5,12 +5,19 @@ import SignupSystem from "../signup-system";
 
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
+import {
+  isMultiDayEvent,
+  formatFullEventDateRange,
+  getEventDurationDays,
+  getEventStatus,
+} from "../../../lib/event-dates";
 
 interface EventPageProps {
   event: {
     slug: string;
     title: string;
     date: string;
+    endDate?: string;
     body: string;
     location?: string;
     isCancelled?: boolean;
@@ -28,24 +35,14 @@ export default function EventClientPage({ event: initialEvent }: EventPageProps)
   const liveEvent = useQuery(api.events.getEventBySlug, { slug: initialEvent.slug });
   const event = (liveEvent as typeof initialEvent) || initialEvent;
 
-  const eventDate = new Date(event.date);
-  const formattedDate = isNaN(eventDate.getTime())
-    ? event.date
-    : eventDate.toLocaleDateString("en-GB", {
-        timeZone: "Europe/Brussels",
-        weekday: "long",
-        day: "numeric",
-        month: "long",
-        year: "numeric",
-      });
-  const formattedTime = isNaN(eventDate.getTime())
-    ? ""
-    : eventDate.toLocaleTimeString("en-GB", {
-        timeZone: "Europe/Brussels",
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false,
-      });
+  const isMulti = isMultiDayEvent(event.date, event.endDate);
+  const status = getEventStatus(event.date, event.endDate);
+  const durationDays = getEventDurationDays(event.date, event.endDate);
+  const { dateRangeStr, timeRangeStr } = formatFullEventDateRange(
+    event.date,
+    event.endDate,
+    "en-GB"
+  );
 
   const eventLocation = event.location?.trim() || "Het Textielhuis, Kortrijk";
 
@@ -79,9 +76,58 @@ export default function EventClientPage({ event: initialEvent }: EventPageProps)
       )}
 
       <h1>{event.title}</h1>
-      <h3 style={{ color: "var(--secondary)", textTransform: "capitalize", marginBottom: "0.4rem" }}>
-        {formattedDate} {formattedTime ? `at ${formattedTime}` : ""}
-      </h3>
+      <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", flexWrap: "wrap", marginBottom: "0.4rem" }}>
+        <h3 style={{ color: "var(--secondary)", textTransform: "capitalize", margin: 0 }}>
+          {dateRangeStr} {timeRangeStr}
+        </h3>
+        {isMulti && (
+          <span
+            style={{
+              background: "rgba(56, 189, 248, 0.15)",
+              border: "1px solid rgba(56, 189, 248, 0.4)",
+              color: "#7dd3fc",
+              padding: "0.2rem 0.6rem",
+              borderRadius: "1rem",
+              fontSize: "0.8rem",
+              fontWeight: 700,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "0.3rem",
+            }}
+          >
+            🗓️ {durationDays}-Day Event
+          </span>
+        )}
+        {status === "ongoing" && !event.isCancelled && (
+          <span
+            style={{
+              background: "rgba(34, 197, 94, 0.15)",
+              border: "1px solid rgba(34, 197, 94, 0.4)",
+              color: "#4ade80",
+              padding: "0.2rem 0.6rem",
+              borderRadius: "1rem",
+              fontSize: "0.8rem",
+              fontWeight: 800,
+              textTransform: "uppercase",
+              letterSpacing: "0.04em",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "0.35rem",
+            }}
+          >
+            <span
+              style={{
+                width: "7px",
+                height: "7px",
+                borderRadius: "50%",
+                backgroundColor: "#22c55e",
+                boxShadow: "0 0 6px #22c55e",
+              }}
+            />
+            Happening Now
+          </span>
+        )}
+      </div>
       <div style={{ color: "rgba(242, 211, 180, 0.85)", fontSize: "0.95rem", marginBottom: "1.5rem", display: "flex", alignItems: "center", gap: "0.35rem" }}>
         <span>📍 {eventLocation}</span>
       </div>
