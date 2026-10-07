@@ -19,6 +19,7 @@ export default defineSchema({
     subscriptionStatus: v.optional(v.string()),
     membershipExpiresAt: v.optional(v.number()),
     discordId: v.optional(v.string()),
+    newsletterOptIn: v.optional(v.boolean()),
   })
     .index("by_tokenIdentifier", ["tokenIdentifier"])
     .index("by_clerkId", ["clerkId"])

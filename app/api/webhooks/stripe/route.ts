@@ -49,6 +49,20 @@ export async function POST(req: Request) {
           const customerId = session.customer as string;
           const subscriptionId = session.subscription as string;
 
+          // Check for newsletter preference from custom_fields dropdown or consent object
+          const newsletterCustomField = session.custom_fields?.find(
+            (f) => f.key === "newsletter"
+          );
+          const newsletterChoice = newsletterCustomField?.dropdown?.value;
+          const promotionsConsent = (session as any).consent?.promotions;
+
+          const newsletterOptIn =
+            newsletterChoice === "yes" || promotionsConsent === "opt_in"
+              ? true
+              : newsletterChoice === "no" || promotionsConsent === "opt_out"
+              ? false
+              : undefined;
+
           if (clerkUserId) {
             await convex.mutation(api.users.updateUserStripeInfo, {
               clerkId: clerkUserId,
@@ -56,10 +70,23 @@ export async function POST(req: Request) {
               stripeSubscriptionId: subscriptionId,
               subscriptionStatus: "active",
               role: "member",
+              ...(newsletterOptIn !== undefined ? { newsletterOptIn } : {}),
             });
             console.log(
-              `Activated Kobold membership for Clerk user: ${clerkUserId}`
+              `Activated Kobold membership for Clerk user: ${clerkUserId} (Newsletter opt-in: ${newsletterOptIn ?? "unspecified"})`
             );
+          }
+
+          if (customerId && newsletterOptIn !== undefined) {
+            try {
+              await stripe.customers.update(customerId, {
+                metadata: {
+                  newsletterOptIn: newsletterOptIn ? "true" : "false",
+                },
+              });
+            } catch (err) {
+              console.error("Failed to update Stripe customer newsletter metadata:", err);
+            }
           }
         }
         break;

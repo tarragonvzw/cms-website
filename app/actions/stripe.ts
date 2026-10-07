@@ -85,8 +85,8 @@ export async function createKoboldCheckoutSessionAction(returnPath: string = "/"
     const successUrl = `${origin}${returnPath}?membership=success&session_id={CHECKOUT_SESSION_ID}`;
     const cancelUrl = `${origin}${returnPath}?membership=cancelled`;
 
-    const session = await stripe.checkout.sessions.create({
-      mode: "subscription",
+    const sessionParams = {
+      mode: "subscription" as const,
       customer: customerId,
       line_items: [
         {
@@ -98,12 +98,35 @@ export async function createKoboldCheckoutSessionAction(returnPath: string = "/"
         enabled: true,
       },
       allow_promotion_codes: true,
+      custom_fields: [
+        {
+          key: "newsletter",
+          label: {
+            type: "custom" as const,
+            custom: "Subscribe to Tarragon newsletter?",
+          },
+          type: "dropdown" as const,
+          optional: true,
+          dropdown: {
+            options: [
+              {
+                label: "Yes, subscribe me to news & updates",
+                value: "yes",
+              },
+              {
+                label: "No, thank you",
+                value: "no",
+              },
+            ],
+          },
+        },
+      ],
       consent_collection: {
-        terms_of_service: "required",
+        terms_of_service: "required" as const,
       },
       customer_update: {
-        name: "auto",
-        address: "auto",
+        name: "auto" as const,
+        address: "auto" as const,
       },
       metadata: {
         clerkUserId: userId,
@@ -119,7 +142,21 @@ export async function createKoboldCheckoutSessionAction(returnPath: string = "/"
       },
       success_url: successUrl,
       cancel_url: cancelUrl,
-    });
+    };
+
+    let session;
+    try {
+      session = await stripe.checkout.sessions.create(sessionParams);
+    } catch (createErr: any) {
+      if (createErr?.message?.includes("terms of service unless a URL is set")) {
+        // Fallback for development/testing when no ToS URL is configured in Stripe Dashboard settings
+        const fallbackParams = { ...sessionParams };
+        delete (fallbackParams as { consent_collection?: unknown }).consent_collection;
+        session = await stripe.checkout.sessions.create(fallbackParams);
+      } else {
+        throw createErr;
+      }
+    }
 
     if (!session.url) {
       return { error: "Failed to create Stripe Checkout Session" };

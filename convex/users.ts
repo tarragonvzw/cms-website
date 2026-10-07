@@ -430,6 +430,7 @@ export const updateUserStripeInfo = mutation({
       )
     ),
     membershipExpiresAt: v.optional(v.number()),
+    newsletterOptIn: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const user = await ctx.db
@@ -448,12 +449,14 @@ export const updateUserStripeInfo = mutation({
       role?: "user" | "member" | "dragon";
       isMember?: boolean;
       membershipExpiresAt?: number;
+      newsletterOptIn?: boolean;
     } = {};
 
     if (args.stripeCustomerId !== undefined) patchData.stripeCustomerId = args.stripeCustomerId;
     if (args.stripeSubscriptionId !== undefined) patchData.stripeSubscriptionId = args.stripeSubscriptionId;
     if (args.subscriptionStatus !== undefined) patchData.subscriptionStatus = args.subscriptionStatus;
     if (args.membershipExpiresAt !== undefined) patchData.membershipExpiresAt = args.membershipExpiresAt;
+    if (args.newsletterOptIn !== undefined) patchData.newsletterOptIn = args.newsletterOptIn;
 
     if (args.role !== undefined) {
       // Never demote a Dragon to a member

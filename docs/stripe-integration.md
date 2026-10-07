@@ -9,6 +9,7 @@ This application integrates directly with **Stripe** to process memberships, eve
 To comply with Belgian and European VAT regulations:
 - Payments are handled **directly through Stripe** (rather than through Clerk billing).
 - Checkout sessions enable `tax_id_collection: { enabled: true }` to collect VAT/BTW numbers where applicable.
+- Checkout sessions include an optional `custom_fields` dropdown for newsletter/mailing list opt-in ("Subscribe to Tarragon newsletter?"), complying with Belgian & EU GDPR regulations. Preferences sync to Convex `users.newsletterOptIn` and Stripe customer metadata.
 - Official Belgian VAT receipts and invoices are generated and accessible to members through the **Stripe Customer Portal**.
 
 ---
