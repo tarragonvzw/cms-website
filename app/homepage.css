@@ -1099,6 +1099,17 @@
     background: rgba(239, 68, 68, 0.06) !important;
 }
 
+/* Open Game Night Row (Informational walk-in) */
+.compact-open-row {
+    cursor: default;
+}
+
+.compact-open-row:hover {
+    background: rgba(151, 183, 142, 0.05);
+    border-color: rgba(151, 183, 142, 0.25);
+    transform: none;
+}
+
 .compact-cancelled-row:hover {
     background: rgba(239, 68, 68, 0.12) !important;
     border-color: rgba(239, 68, 68, 0.6) !important;

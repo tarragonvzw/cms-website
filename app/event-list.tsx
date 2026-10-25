@@ -14,6 +14,7 @@ import {
   getEventStatus,
   formatCompactCapsule,
   formatEventMetaTime,
+  brusselsLocalToUtcIso,
 } from '../lib/event-dates';
 
 interface EventListProps {
@@ -181,11 +182,53 @@ export default function EventList(props: EventListProps = {}) {
     return map;
   }, [guildSessions]);
 
-  // Sorted upcoming Convex events for the compact list
+  // Sorted upcoming events for the compact list (Convex events + first upcoming Open Game Night)
   const upcomingEvents = useMemo(() => {
     if (!futureEvents) return [];
-    return [...futureEvents].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  }, [futureEvents]);
+
+    const list: any[] = [...futureEvents];
+
+    // Find the first next upcoming Wednesday with an Open Game Night (not cancelled and no active Convex event)
+    const searchCursor = new Date(nowDate);
+    searchCursor.setHours(0, 0, 0, 0);
+
+    for (let i = 0; i < 180; i++) {
+      const d = new Date(searchCursor);
+      d.setDate(searchCursor.getDate() + i);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      const dateKey = `${year}-${month}-${day}`;
+
+      const isWednesday = new Date(`${dateKey}T12:00:00Z`).getUTCDay() === 3;
+      if (!isWednesday) continue;
+
+      const dayEvents = eventsByDate.get(dateKey) || [];
+      const cancelledEvent = dayEvents.find((e) => Boolean(e.isCancelled));
+      const activeEvents = dayEvents.filter((e) => !e.isCancelled);
+      const hasActiveConvexEvent = activeEvents.length > 0;
+
+      if (!cancelledEvent && !hasActiveConvexEvent) {
+        const startIso = brusselsLocalToUtcIso(`${dateKey}T19:00`);
+        const endIso = brusselsLocalToUtcIso(`${dateKey}T22:00`);
+        const endMs = new Date(endIso).getTime();
+        // If event hasn't ended yet
+        if (endMs > nowDate.getTime()) {
+          list.push({
+            _id: `open-game-night-${dateKey}`,
+            title: 'Open Game Night',
+            date: startIso,
+            endDate: endIso,
+            isOpenGameNight: true,
+            location: 'Het Textielhuis, Kortrijk',
+          });
+          break;
+        }
+      }
+    }
+
+    return list.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  }, [futureEvents, eventsByDate, nowDate]);
 
   // If loading
   if (futureEvents === undefined) {
@@ -411,20 +454,15 @@ export default function EventList(props: EventListProps = {}) {
                 : 0;
 
               const isCancelled = Boolean(event.isCancelled);
+              const isOpenGameNight = Boolean(event.isOpenGameNight);
               const isMulti = isMultiDayEvent(event.date, event.endDate);
               const capsule = formatCompactCapsule(event.date, event.endDate);
               const timeMeta = formatEventMetaTime(event.date, event.endDate);
               const durationDays = getEventDurationDays(event.date, event.endDate);
               const status = getEventStatus(event.date, event.endDate, nowDate);
 
-              return (
-                <Link
-                  key={`convex-${event._id}`}
-                  href={`/event/${event.slug}`}
-                  className={`compact-event-row ${isCancelled ? 'compact-cancelled-row' : ''} ${
-                    isMulti ? 'compact-multiday-row' : ''
-                  }`}
-                >
+              const rowContent = (
+                <>
                   {/* Date Capsule (Placed cleanly on Left) */}
                   <div
                     className={`compact-date-capsule ${isCancelled ? 'cancelled-date-capsule' : ''} ${
@@ -457,6 +495,12 @@ export default function EventList(props: EventListProps = {}) {
                               <span>Happening Now</span>
                             </span>
                           )}
+                          {isOpenGameNight && (
+                            <span className="compact-slots-badge">
+                              <Sparkles size={12} />
+                              <span>Walk-in</span>
+                            </span>
+                          )}
                           {isMulti && (
                             <span className="compact-multiday-badge" title={`Spans ${durationDays} days`}>
                               <CalendarDays size={12} />
@@ -487,9 +531,34 @@ export default function EventList(props: EventListProps = {}) {
                   </div>
 
                   {/* Arrow Icon */}
-                  <div className="compact-event-arrow" style={isCancelled ? { color: 'rgba(239, 68, 68, 0.6)' } : undefined}>
-                    <ChevronRight size={18} />
+                  {!isOpenGameNight && (
+                    <div className="compact-event-arrow" style={isCancelled ? { color: 'rgba(239, 68, 68, 0.6)' } : undefined}>
+                      <ChevronRight size={18} />
+                    </div>
+                  )}
+                </>
+              );
+
+              if (isOpenGameNight) {
+                return (
+                  <div
+                    key={`open-${event._id}`}
+                    className="compact-event-row compact-open-row"
+                  >
+                    {rowContent}
                   </div>
+                );
+              }
+
+              return (
+                <Link
+                  key={`convex-${event._id}`}
+                  href={`/event/${event.slug}`}
+                  className={`compact-event-row ${isCancelled ? 'compact-cancelled-row' : ''} ${
+                    isMulti ? 'compact-multiday-row' : ''
+                  }`}
+                >
+                  {rowContent}
                 </Link>
               );
             })}
