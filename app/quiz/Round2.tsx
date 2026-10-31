@@ -78,6 +78,7 @@ function PuzzlesTab({
   onPresent,
 }: {
   puzzles: Puzzle[] | undefined;
+  // eslint-disable-next-line no-unused-vars
   onPresent: (id: Id<"quizConnections">) => void;
 }) {
   const savePuzzle = useMutation(api.quiz.saveConnection);
@@ -223,6 +224,7 @@ function PresentTab({
 }: {
   puzzles: Puzzle[] | undefined;
   presenting: Puzzle | null;
+  // eslint-disable-next-line no-unused-vars
   onSelect: (id: Id<"quizConnections"> | null) => void;
 }) {
   if (puzzles === undefined) return <p style={{ color: "var(--secondary)" }}>Loading...</p>;
