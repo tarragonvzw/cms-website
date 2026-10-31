@@ -13,6 +13,7 @@ import type * as discord from "../discord.js";
 import type * as dragons from "../dragons.js";
 import type * as events from "../events.js";
 import type * as pages from "../pages.js";
+import type * as quiz from "../quiz.js";
 import type * as signups from "../signups.js";
 import type * as sponsors from "../sponsors.js";
 import type * as users from "../users.js";
@@ -29,6 +30,7 @@ declare const fullApi: ApiFromModules<{
   dragons: typeof dragons;
   events: typeof events;
   pages: typeof pages;
+  quiz: typeof quiz;
   signups: typeof signups;
   sponsors: typeof sponsors;
   users: typeof users;

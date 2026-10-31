@@ -100,5 +100,36 @@ export default defineSchema({
     .index("by_slug", ["slug"])
     .index("by_language_and_enabled", ["language", "enabled"])
     .index("by_enabled", ["enabled"]),
+
+  quizQuestions: defineTable({
+    round: v.number(),
+    order: v.number(),
+    text: v.string(),
+    answer: v.string(),
+    points: v.number(),
+  }).index("by_round_and_order", ["round", "order"]),
+
+  quizRounds: defineTable({
+    round: v.number(),
+    isOpen: v.boolean(),
+  }).index("by_round", ["round"]),
+
+  quizSubmissions: defineTable({
+    round: v.number(),
+    teamName: v.string(),
+    teamKey: v.string(),
+    answers: v.record(v.id("quizQuestions"), v.string()),
+    grades: v.record(v.id("quizQuestions"), v.boolean()),
+  }).index("by_round_and_teamKey", ["round", "teamKey"]),
+
+  quizConnections: defineTable({
+    title: v.string(),
+    groups: v.array(
+      v.object({
+        connection: v.string(),
+        words: v.array(v.string()),
+      })
+    ),
+  }),
 });
 

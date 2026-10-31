@@ -22,6 +22,7 @@ export default clerkMiddleware((auth, request) => {
     !pathname.startsWith('/admin') &&
     !pathname.startsWith('/event') &&
     !pathname.startsWith('/dragon') &&
+    !pathname.startsWith('/quiz') &&
     !pathname.startsWith('/sitemap.xml') &&
     !pathname.startsWith('/robots.txt') &&
     !pathname.includes('.')
