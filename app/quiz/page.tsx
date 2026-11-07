@@ -8,8 +8,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
 import Round2 from "./Round2";
-
-const ROUND = 1;
+import Round3 from "./Round3";
 
 type Tab = "questions" | "preview" | "present" | "grading";
 
@@ -18,7 +17,7 @@ export default function QuizAdminPage() {
   const currentUser = useQuery(api.users.getCurrentUser);
   const isDragon = currentUser?.role === "dragon";
 
-  const [round, setRound] = useState<1 | 2>(1);
+  const [round, setRound] = useState<1 | 2 | 3 | 4>(1);
 
   if (!isLoaded || (isSignedIn && currentUser === undefined)) {
     return (
@@ -50,7 +49,10 @@ export default function QuizAdminPage() {
     <div className="dragon-admin-container">
       <div className="dragon-admin-header">
         <h1>Quiz</h1>
-        <p>Manage questions, show the join QR code and grade submissions.</p>
+        <p>
+          Prepare all four rounds. The quiz control server (docker compose in <code>tarragon-quiz</code>) pulls
+          everything from here.
+        </p>
       </div>
 
       <div className="dragon-tabs">
@@ -58,12 +60,41 @@ export default function QuizAdminPage() {
           Round 1 — Questions
         </button>
         <button className={`dragon-tab ${round === 2 ? "active" : ""}`} onClick={() => setRound(2)}>
-          Round 2 — Connections
+          Round 2 — Potion Brewing
+        </button>
+        <button className={`dragon-tab ${round === 3 ? "active" : ""}`} onClick={() => setRound(3)}>
+          Round 3 — Bardic Inspiration
+        </button>
+        <button className={`dragon-tab ${round === 4 ? "active" : ""}`} onClick={() => setRound(4)}>
+          Round 4 — Countdown
         </button>
       </div>
 
-      {round === 1 ? <Round1 /> : <Round2 />}
+      {round === 1 && <Round1 />}
+      {round === 2 && <Round2 />}
+      {round === 3 && <Round3 />}
+      {round === 4 && <Round4 />}
     </div>
+  );
+}
+
+// Round 4 only needs a (large) pool of questions; the control server runs it.
+function Round4() {
+  const [activeTab, setActiveTab] = useState<"questions" | "preview">("questions");
+  return (
+    <>
+      <div className="dragon-tabs">
+        <button className={`dragon-tab ${activeTab === "questions" ? "active" : ""}`} onClick={() => setActiveTab("questions")}>
+          Questions
+        </button>
+        <button className={`dragon-tab ${activeTab === "preview" ? "active" : ""}`} onClick={() => setActiveTab("preview")}>
+          Preview
+        </button>
+      </div>
+      <div className="dragon-panel">
+        {activeTab === "questions" ? <QuestionsTab round={4} /> : <PreviewTab round={4} />}
+      </div>
+    </>
   );
 }
 
@@ -93,8 +124,8 @@ function Round1() {
       </div>
 
       <div className="dragon-panel">
-        {activeTab === "questions" && <QuestionsTab />}
-        {activeTab === "preview" && <PreviewTab />}
+        {activeTab === "questions" && <QuestionsTab round={1} />}
+        {activeTab === "preview" && <PreviewTab round={1} />}
         {activeTab === "present" && <PresentTab />}
         {activeTab === "grading" && <GradingTab />}
       </div>
@@ -113,8 +144,8 @@ const inputStyle: React.CSSProperties = {
   fontSize: "0.95rem",
 };
 
-function QuestionsTab() {
-  const questions = useQuery(api.quiz.listQuestions, { round: ROUND });
+function QuestionsTab({ round }: { round: number }) {
+  const questions = useQuery(api.quiz.listQuestions, { round });
   const saveQuestion = useMutation(api.quiz.saveQuestion);
   const deleteQuestion = useMutation(api.quiz.deleteQuestion);
   const moveQuestion = useMutation(api.quiz.moveQuestion);
@@ -138,7 +169,7 @@ function QuestionsTab() {
     try {
       await saveQuestion({
         id: editingId ?? undefined,
-        round: ROUND,
+        round,
         text,
         answer,
         points,
@@ -257,8 +288,8 @@ function QuestionsTab() {
   );
 }
 
-function PreviewTab() {
-  const questions = useQuery(api.quiz.listQuestions, { round: ROUND });
+function PreviewTab({ round }: { round: number }) {
+  const questions = useQuery(api.quiz.listQuestions, { round });
 
   if (questions === undefined) return <p style={{ color: "var(--secondary)" }}>Loading...</p>;
   if (questions.length === 0) return <p style={{ color: "var(--secondary)" }}>No questions yet.</p>;
@@ -266,7 +297,11 @@ function PreviewTab() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
       <p style={{ color: "var(--secondary)" }}>
-        This is what teams see at <code>/quiz/round1</code>, regardless of whether the round is open.
+        {round === 1 ? (
+          <>This is what teams see at <code>/quiz/round1</code>, regardless of whether the round is open.</>
+        ) : (
+          <>These questions are shown on the big screen by the control server; answers are only for the host.</>
+        )}
       </p>
       {questions.map((q, i) => (
         <div key={q._id}>
@@ -276,7 +311,11 @@ function PreviewTab() {
               ({q.points} {q.points === 1 ? "pt" : "pts"})
             </span>
           </div>
-          <input style={inputStyle} placeholder="Your answer" disabled />
+          {round === 1 ? (
+            <input style={inputStyle} placeholder="Your answer" disabled />
+          ) : (
+            <div style={{ color: "#34d399", fontSize: "0.9rem" }}>Answer: {q.answer || "—"}</div>
+          )}
         </div>
       ))}
     </div>
@@ -284,9 +323,9 @@ function PreviewTab() {
 }
 
 function PresentTab() {
-  const roundState = useQuery(api.quiz.getRoundState, { round: ROUND });
+  const roundState = useQuery(api.quiz.getRoundState, { round: 1 });
   const setRoundOpen = useMutation(api.quiz.setRoundOpen);
-  const submissions = useQuery(api.quiz.listSubmissions, { round: ROUND });
+  const submissions = useQuery(api.quiz.listSubmissions, { round: 1 });
   const [fullscreen, setFullscreen] = useState(false);
 
   const url = typeof window !== "undefined" ? `${window.location.origin}/quiz/round1` : "";
@@ -301,7 +340,7 @@ function PresentTab() {
         <button
           className="dragon-btn-primary"
           disabled={roundState === undefined}
-          onClick={() => setRoundOpen({ round: ROUND, isOpen: !isOpen })}
+          onClick={() => setRoundOpen({ round: 1, isOpen: !isOpen })}
         >
           {isOpen ? "Close round" : "Open round"}
         </button>
@@ -343,8 +382,8 @@ function PresentTab() {
 }
 
 function GradingTab() {
-  const questions = useQuery(api.quiz.listQuestions, { round: ROUND });
-  const submissions = useQuery(api.quiz.listSubmissions, { round: ROUND });
+  const questions = useQuery(api.quiz.listQuestions, { round: 1 });
+  const submissions = useQuery(api.quiz.listSubmissions, { round: 1 });
   const setGrade = useMutation(api.quiz.setGrade);
   const deleteSubmission = useMutation(api.quiz.deleteSubmission);
 

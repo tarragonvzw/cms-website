@@ -86,12 +86,14 @@ function PuzzlesTab({
 
   const [editingId, setEditingId] = useState<Id<"quizConnections"> | null>(null);
   const [title, setTitle] = useState("");
+  const [theme, setTheme] = useState("");
   const [groups, setGroups] = useState<Group[]>(emptyGroups);
   const [error, setError] = useState<string | null>(null);
 
   const reset = () => {
     setEditingId(null);
     setTitle("");
+    setTheme("");
     setGroups(emptyGroups());
     setError(null);
   };
@@ -107,7 +109,7 @@ function PuzzlesTab({
   const handleSave = async () => {
     setError(null);
     try {
-      await savePuzzle({ id: editingId ?? undefined, title, groups });
+      await savePuzzle({ id: editingId ?? undefined, title, theme, groups });
       reset();
     } catch (err: any) {
       setError(err.message || "Failed to save puzzle");
@@ -123,6 +125,12 @@ function PuzzlesTab({
           placeholder="Puzzle title (for you only)"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
+        />
+        <input
+          style={inputStyle}
+          placeholder="Over-arching theme (what all four groups have in common)"
+          value={theme}
+          onChange={(e) => setTheme(e.target.value)}
         />
         <p style={{ color: "var(--secondary)", fontSize: "0.9rem" }}>
           Groups are ordered from easiest (yellow) to hardest (purple).
@@ -183,7 +191,10 @@ function PuzzlesTab({
                 key={p._id}
                 style={{ display: "flex", justifyContent: "space-between", gap: "0.75rem", flexWrap: "wrap" }}
               >
-                <strong>{p.title}</strong>
+                <div>
+                  <strong>{p.title}</strong>
+                  {p.theme && <span style={{ color: "#34d399", marginLeft: "0.5rem" }}>Theme: {p.theme}</span>}
+                </div>
                 <div style={{ display: "flex", gap: "0.4rem" }}>
                   <button className="dragon-btn-primary" onClick={() => onPresent(p._id)}>
                     Present
@@ -193,6 +204,7 @@ function PuzzlesTab({
                     onClick={() => {
                       setEditingId(p._id);
                       setTitle(p.title);
+                      setTheme(p.theme ?? "");
                       setGroups(p.groups.map((g) => ({ connection: g.connection, words: [...g.words] })));
                       setError(null);
                     }}
@@ -349,6 +361,9 @@ function Board({ puzzle }: { puzzle: Puzzle }) {
       <p style={{ color: "var(--secondary)", fontSize: "0.9rem" }}>
         Click words to highlight up to 4 while teams discuss. Reveal a group when you are ready.
       </p>
+      {puzzle.theme && (
+        <p style={{ color: "#34d399" }}>Theme (host only): {puzzle.theme}</p>
+      )}
       {!fullscreen && board}
 
       {fullscreen && (

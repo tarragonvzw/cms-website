@@ -12,6 +12,7 @@ import type * as crons from "../crons.js";
 import type * as discord from "../discord.js";
 import type * as dragons from "../dragons.js";
 import type * as events from "../events.js";
+import type * as http from "../http.js";
 import type * as pages from "../pages.js";
 import type * as quiz from "../quiz.js";
 import type * as signups from "../signups.js";
@@ -29,6 +30,7 @@ declare const fullApi: ApiFromModules<{
   discord: typeof discord;
   dragons: typeof dragons;
   events: typeof events;
+  http: typeof http;
   pages: typeof pages;
   quiz: typeof quiz;
   signups: typeof signups;

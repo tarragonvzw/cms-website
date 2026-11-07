@@ -1,7 +1,7 @@
-import { mutation, query, QueryCtx } from "./_generated/server";
+import { internalMutation, internalQuery, mutation, query, QueryCtx, MutationCtx } from "./_generated/server";
 import { v } from "convex/values";
 
-const MAX_QUESTIONS_PER_ROUND = 100;
+const MAX_QUESTIONS_PER_ROUND = 500;
 const MAX_SUBMISSIONS_PER_ROUND = 200;
 const MAX_TEAM_NAME_LENGTH = 60;
 const MAX_ANSWER_LENGTH = 500;
@@ -28,6 +28,18 @@ async function isRoundOpen(ctx: QueryCtx, round: number) {
     .withIndex("by_round", (q) => q.eq("round", round))
     .unique();
   return state?.isOpen ?? false;
+}
+
+async function setOpen(ctx: MutationCtx, round: number, isOpen: boolean) {
+  const state = await ctx.db
+    .query("quizRounds")
+    .withIndex("by_round", (q) => q.eq("round", round))
+    .unique();
+  if (state) {
+    await ctx.db.patch(state._id, { isOpen });
+  } else {
+    await ctx.db.insert("quizRounds", { round, isOpen });
+  }
 }
 
 /**
@@ -218,15 +230,7 @@ export const setRoundOpen = mutation({
   args: { round: v.number(), isOpen: v.boolean() },
   handler: async (ctx, args) => {
     await requireDragon(ctx);
-    const state = await ctx.db
-      .query("quizRounds")
-      .withIndex("by_round", (q) => q.eq("round", args.round))
-      .unique();
-    if (state) {
-      await ctx.db.patch(state._id, { isOpen: args.isOpen });
-    } else {
-      await ctx.db.insert("quizRounds", { round: args.round, isOpen: args.isOpen });
-    }
+    await setOpen(ctx, args.round, args.isOpen);
     return null;
   },
 });
@@ -292,6 +296,7 @@ export const saveConnection = mutation({
   args: {
     id: v.optional(v.id("quizConnections")),
     title: v.string(),
+    theme: v.optional(v.string()),
     groups: v.array(
       v.object({
         connection: v.string(),
@@ -322,7 +327,11 @@ export const saveConnection = mutation({
       }
     }
 
-    const payload = { title: args.title.trim() || "Untitled puzzle", groups };
+    const payload = {
+      title: args.title.trim() || "Untitled puzzle",
+      theme: args.theme?.trim() || undefined,
+      groups,
+    };
     if (args.id) {
       await ctx.db.patch(args.id, payload);
       return args.id;
@@ -336,6 +345,177 @@ export const deleteConnection = mutation({
   handler: async (ctx, args) => {
     await requireDragon(ctx);
     await ctx.db.delete(args.id);
+    return null;
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Round 3: Songs (Dragon-only)
+// ---------------------------------------------------------------------------
+
+const MAX_SONGS = 200;
+
+export const listSongs = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireDragon(ctx);
+    const songs = await ctx.db.query("quizSongs").withIndex("by_order").take(MAX_SONGS);
+    return await Promise.all(
+      songs.map(async (s) => ({
+        ...s,
+        audioUrl: s.audio ? await ctx.storage.getUrl(s.audio) : null,
+      }))
+    );
+  },
+});
+
+export const generateSongUploadUrl = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await requireDragon(ctx);
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+export const saveSong = mutation({
+  args: {
+    id: v.optional(v.id("quizSongs")),
+    title: v.string(),
+    artist: v.string(),
+    audio: v.optional(v.id("_storage")),
+    startSeconds: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    await requireDragon(ctx);
+    const title = args.title.trim();
+    const artist = args.artist.trim();
+    if (!title || !artist) throw new Error("Title and artist are required");
+    if (args.startSeconds !== undefined && args.startSeconds < 0) {
+      throw new Error("Start time cannot be negative");
+    }
+    const payload = { title, artist, startSeconds: args.startSeconds };
+
+    if (args.id) {
+      const existing = await ctx.db.get(args.id);
+      if (!existing) throw new Error("Song not found");
+      // Only replace the audio when a new file was uploaded
+      if (args.audio && existing.audio && existing.audio !== args.audio) {
+        await ctx.storage.delete(existing.audio);
+      }
+      await ctx.db.patch(args.id, { ...payload, audio: args.audio ?? existing.audio });
+      return args.id;
+    }
+
+    const last = await ctx.db.query("quizSongs").withIndex("by_order").order("desc").first();
+    return await ctx.db.insert("quizSongs", {
+      order: (last?.order ?? 0) + 1,
+      ...payload,
+      audio: args.audio,
+    });
+  },
+});
+
+export const deleteSong = mutation({
+  args: { id: v.id("quizSongs") },
+  handler: async (ctx, args) => {
+    await requireDragon(ctx);
+    const song = await ctx.db.get(args.id);
+    if (!song) return null;
+    if (song.audio) await ctx.storage.delete(song.audio);
+    await ctx.db.delete(args.id);
+    return null;
+  },
+});
+
+export const moveSong = mutation({
+  args: { id: v.id("quizSongs"), direction: v.union(v.literal("up"), v.literal("down")) },
+  handler: async (ctx, args) => {
+    await requireDragon(ctx);
+    const song = await ctx.db.get(args.id);
+    if (!song) throw new Error("Song not found");
+    const neighbour = await ctx.db
+      .query("quizSongs")
+      .withIndex("by_order", (q) =>
+        args.direction === "up" ? q.lt("order", song.order) : q.gt("order", song.order)
+      )
+      .order(args.direction === "up" ? "desc" : "asc")
+      .first();
+    if (!neighbour) return null;
+    await ctx.db.patch(song._id, { order: neighbour.order });
+    await ctx.db.patch(neighbour._id, { order: song.order });
+    return null;
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Control server API (called from convex/http.ts, authenticated by shared key)
+// ---------------------------------------------------------------------------
+
+/** Everything the local quiz server needs to run the show offline. */
+export const exportForControlServer = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const roundQuestions = async (round: number) =>
+      (
+        await ctx.db
+          .query("quizQuestions")
+          .withIndex("by_round_and_order", (q) => q.eq("round", round))
+          .take(MAX_QUESTIONS_PER_ROUND)
+      ).map((q) => ({ id: q._id, text: q.text, answer: q.answer, points: q.points }));
+
+    const connections = (await ctx.db.query("quizConnections").take(MAX_CONNECTIONS)).map((c) => ({
+      id: c._id,
+      title: c.title,
+      theme: c.theme ?? "",
+      groups: c.groups,
+    }));
+
+    const songs = await ctx.db.query("quizSongs").withIndex("by_order").take(MAX_SONGS);
+    const songsOut = await Promise.all(
+      songs.map(async (s) => ({
+        id: s._id,
+        title: s.title,
+        artist: s.artist,
+        startSeconds: s.startSeconds ?? 0,
+        audioId: s.audio ?? null,
+        audioUrl: s.audio ? await ctx.storage.getUrl(s.audio) : null,
+      }))
+    );
+
+    return {
+      round1: await roundQuestions(1),
+      round2: connections,
+      round3: songsOut,
+      round4: await roundQuestions(4),
+      round1Open: await isRoundOpen(ctx, 1),
+    };
+  },
+});
+
+export const submissionsForControlServer = internalQuery({
+  args: { round: v.number() },
+  handler: async (ctx, args) => {
+    const submissions = await ctx.db
+      .query("quizSubmissions")
+      .withIndex("by_round_and_teamKey", (q) => q.eq("round", args.round))
+      .take(MAX_SUBMISSIONS_PER_ROUND);
+    return {
+      isOpen: await isRoundOpen(ctx, args.round),
+      submissions: submissions.map((s) => ({
+        id: s._id,
+        teamName: s.teamName,
+        teamKey: s.teamKey,
+        answers: s.answers,
+        submittedAt: s._creationTime,
+      })),
+    };
+  },
+});
+
+export const setRoundOpenForControlServer = internalMutation({
+  args: { round: v.number(), isOpen: v.boolean() },
+  handler: async (ctx, args) => {
+    await setOpen(ctx, args.round, args.isOpen);
     return null;
   },
 });

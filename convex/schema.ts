@@ -124,6 +124,8 @@ export default defineSchema({
 
   quizConnections: defineTable({
     title: v.string(),
+    // Over-arching theme tying all four groups together
+    theme: v.optional(v.string()),
     groups: v.array(
       v.object({
         connection: v.string(),
@@ -131,5 +133,13 @@ export default defineSchema({
       })
     ),
   }),
-});
 
+  quizSongs: defineTable({
+    order: v.number(),
+    title: v.string(),
+    artist: v.string(),
+    audio: v.optional(v.id("_storage")),
+    // Where in the track playback starts (e.g. skip a long intro)
+    startSeconds: v.optional(v.number()),
+  }).index("by_order", ["order"]),
+});
