@@ -5,6 +5,9 @@ const MAX_QUESTIONS_PER_ROUND = 500;
 const MAX_SUBMISSIONS_PER_ROUND = 200;
 const MAX_TEAM_NAME_LENGTH = 60;
 const MAX_ANSWER_LENGTH = 500;
+const MULTIPLE_CHOICE_ROUND = 4;
+const MIN_CHOICES = 2;
+const MAX_CHOICES = 6;
 
 async function requireDragon(ctx: QueryCtx) {
   const identity = await ctx.auth.getUserIdentity();
@@ -152,6 +155,7 @@ export const saveQuestion = mutation({
     text: v.string(),
     answer: v.string(),
     points: v.number(),
+    choices: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
     await requireDragon(ctx);
@@ -160,11 +164,25 @@ export const saveQuestion = mutation({
     if (!text) {
       throw new Error("Question text is required");
     }
-    const payload = {
-      text,
-      answer: args.answer.trim(),
-      points: args.points,
-    };
+    const answer = args.answer.trim();
+
+    let choices: string[] | undefined;
+    if (args.round === MULTIPLE_CHOICE_ROUND) {
+      choices = (args.choices ?? []).map((c) => c.trim()).filter((c) => c);
+      if (choices.length < MIN_CHOICES || choices.length > MAX_CHOICES) {
+        throw new Error(`Provide ${MIN_CHOICES}-${MAX_CHOICES} answer choices`);
+      }
+      if (new Set(choices.map((c) => c.toLowerCase())).size !== choices.length) {
+        throw new Error("Answer choices must be different");
+      }
+      if (!choices.includes(answer)) {
+        throw new Error("Mark one of the choices as the correct answer");
+      }
+    }
+    // Round 4 is always worth 1 point; it counts toward the final score,
+    // whereas earlier rounds' points are converted to clock seconds.
+    const points = args.round === MULTIPLE_CHOICE_ROUND ? 1 : args.points;
+    const payload = { text, answer, points, choices };
 
     if (args.id) {
       await ctx.db.patch(args.id, payload);
@@ -461,7 +479,7 @@ export const exportForControlServer = internalQuery({
           .query("quizQuestions")
           .withIndex("by_round_and_order", (q) => q.eq("round", round))
           .take(MAX_QUESTIONS_PER_ROUND)
-      ).map((q) => ({ id: q._id, text: q.text, answer: q.answer, points: q.points }));
+      ).map((q) => ({ id: q._id, text: q.text, answer: q.answer, points: q.points, choices: q.choices ?? [] }));
 
     const connections = (await ctx.db.query("quizConnections").take(MAX_CONNECTIONS)).map((c) => ({
       id: c._id,

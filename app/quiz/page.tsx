@@ -78,7 +78,7 @@ export default function QuizAdminPage() {
   );
 }
 
-// Round 4 only needs a (large) pool of questions; the control server runs it.
+// Round 4 only needs a (large) pool of multiple choice questions; the control server runs it.
 function Round4() {
   const [activeTab, setActiveTab] = useState<"questions" | "preview">("questions");
   return (
@@ -144,6 +144,21 @@ const inputStyle: React.CSSProperties = {
   fontSize: "0.95rem",
 };
 
+const CHOICE_LETTERS = ["A", "B", "C", "D", "E", "F"];
+
+function ChoiceList({ choices, answer }: { choices: string[]; answer: string }) {
+  return (
+    <ul style={{ listStyle: "none", padding: 0, fontSize: "0.9rem" }}>
+      {choices.map((c, i) => (
+        <li key={i} style={c === answer ? { color: "#34d399", fontWeight: 600 } : { color: "var(--secondary)" }}>
+          {CHOICE_LETTERS[i]}. {c}
+          {c === answer && " ✓"}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function QuestionsTab({ round }: { round: number }) {
   const questions = useQuery(api.quiz.listQuestions, { round });
   const saveQuestion = useMutation(api.quiz.saveQuestion);
@@ -154,13 +169,16 @@ function QuestionsTab({ round }: { round: number }) {
   const [text, setText] = useState("");
   const [answer, setAnswer] = useState("");
   const [points, setPoints] = useState(1);
+  const [choices, setChoices] = useState<string[]>(["", "", "", ""]);
   const [error, setError] = useState<string | null>(null);
+  const multipleChoice = round === 4;
 
   const reset = () => {
     setEditingId(null);
     setText("");
     setAnswer("");
     setPoints(1);
+    setChoices(["", "", "", ""]);
     setError(null);
   };
 
@@ -173,6 +191,7 @@ function QuestionsTab({ round }: { round: number }) {
         text,
         answer,
         points,
+        choices: multipleChoice ? choices : undefined,
       });
       reset();
     } catch (err: any) {
@@ -191,22 +210,76 @@ function QuestionsTab({ round }: { round: number }) {
           onChange={(e) => setText(e.target.value)}
         />
         <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
-          <input
-            style={{ ...inputStyle, flex: "1 1 240px", width: "auto" }}
-            placeholder="Correct answer (only visible to dragons)"
-            value={answer}
-            onChange={(e) => setAnswer(e.target.value)}
-          />
-          <input
-            style={{ ...inputStyle, width: "100px" }}
-            type="number"
-            min={0}
-            step="any"
-            aria-label="Points"
-            value={points}
-            onChange={(e) => setPoints(Number(e.target.value))}
-          />
+          {!multipleChoice && (
+            <input
+              style={{ ...inputStyle, flex: "1 1 240px", width: "auto" }}
+              placeholder="Correct answer (only visible to dragons)"
+              value={answer}
+              onChange={(e) => setAnswer(e.target.value)}
+            />
+          )}
+          {!multipleChoice && (
+            <input
+              style={{ ...inputStyle, width: "100px" }}
+              type="number"
+              min={0}
+              step="any"
+              aria-label="Points"
+              value={points}
+              onChange={(e) => setPoints(Number(e.target.value))}
+            />
+          )}
         </div>
+        {multipleChoice && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+            <span style={{ color: "var(--secondary)", fontSize: "0.9rem" }}>
+              Answer choices — select the correct one
+            </span>
+            {choices.map((choice, i) => (
+              <div key={i} style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                <input
+                  type="radio"
+                  name="correct-choice"
+                  aria-label={`Choice ${CHOICE_LETTERS[i]} is correct`}
+                  checked={!!choice.trim() && choice.trim() === answer}
+                  disabled={!choice.trim()}
+                  onChange={() => setAnswer(choice.trim())}
+                />
+                <strong>{CHOICE_LETTERS[i]}</strong>
+                <input
+                  style={inputStyle}
+                  placeholder={`Choice ${CHOICE_LETTERS[i]}`}
+                  value={choice}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    // Keep the correct-answer marker attached when its text is edited
+                    if (choice.trim() && choice.trim() === answer) setAnswer(value.trim());
+                    setChoices(choices.map((c, j) => (j === i ? value : c)));
+                  }}
+                />
+                {choices.length > 2 && (
+                  <button
+                    className="dragon-btn-secondary"
+                    aria-label={`Remove choice ${CHOICE_LETTERS[i]}`}
+                    onClick={() => {
+                      if (choice.trim() === answer) setAnswer("");
+                      setChoices(choices.filter((_, j) => j !== i));
+                    }}
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            ))}
+            {choices.length < 6 && (
+              <div>
+                <button className="dragon-btn-secondary" onClick={() => setChoices([...choices, ""])}>
+                  + Add choice
+                </button>
+              </div>
+            )}
+          </div>
+        )}
         {error && <p style={{ color: "#f87171" }}>{error}</p>}
         <div style={{ display: "flex", gap: "0.5rem" }}>
           <button className="dragon-btn-primary" onClick={handleSave} disabled={!text.trim()}>
@@ -230,17 +303,23 @@ function QuestionsTab({ round }: { round: number }) {
           <ol style={{ display: "flex", flexDirection: "column", gap: "0.6rem", paddingLeft: "1.5rem" }}>
             {questions.map((q, i) => (
               <li key={q._id}>
-                <div style={{ display: "flex", gap: "0.75rem", justifyContent: "space-between", flexWrap: "wrap" }}>
-                  <div>
+                <div style={{ display: "flex", gap: "0.75rem", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <div style={{ flex: "1 1 0", minWidth: 0, overflowWrap: "anywhere" }}>
                     <div>
                       {q.text}{" "}
-                      <span style={{ color: "var(--secondary)" }}>
-                        ({q.points} {q.points === 1 ? "pt" : "pts"})
-                      </span>
+                      {!multipleChoice && (
+                        <span style={{ color: "var(--secondary)" }}>
+                          ({q.points} {q.points === 1 ? "pt" : "pts"})
+                        </span>
+                      )}
                     </div>
-                    <div style={{ color: "#34d399", fontSize: "0.9rem" }}>Answer: {q.answer || "—"}</div>
+                    {multipleChoice && q.choices ? (
+                      <ChoiceList choices={q.choices} answer={q.answer} />
+                    ) : (
+                      <div style={{ color: "#34d399", fontSize: "0.9rem" }}>Answer: {q.answer || "—"}</div>
+                    )}
                   </div>
-                  <div style={{ display: "flex", gap: "0.4rem", alignItems: "flex-start" }}>
+                  <div style={{ display: "flex", gap: "0.4rem", alignItems: "flex-start", flexShrink: 0, whiteSpace: "nowrap" }}>
                     <button
                       className="dragon-btn-secondary"
                       disabled={i === 0}
@@ -264,6 +343,7 @@ function QuestionsTab({ round }: { round: number }) {
                         setText(q.text);
                         setAnswer(q.answer);
                         setPoints(q.points);
+                        setChoices(q.choices?.length ? q.choices : ["", "", "", ""]);
                         setError(null);
                       }}
                     >
@@ -307,12 +387,16 @@ function PreviewTab({ round }: { round: number }) {
         <div key={q._id}>
           <div style={{ fontWeight: 600, marginBottom: "0.4rem" }}>
             {i + 1}. {q.text}{" "}
-            <span style={{ color: "var(--secondary)", fontWeight: 400 }}>
-              ({q.points} {q.points === 1 ? "pt" : "pts"})
-            </span>
+            {round !== 4 && (
+              <span style={{ color: "var(--secondary)", fontWeight: 400 }}>
+                ({q.points} {q.points === 1 ? "pt" : "pts"})
+              </span>
+            )}
           </div>
           {round === 1 ? (
             <input style={inputStyle} placeholder="Your answer" disabled />
+          ) : round === 4 && q.choices ? (
+            <ChoiceList choices={q.choices} answer={q.answer} />
           ) : (
             <div style={{ color: "#34d399", fontSize: "0.9rem" }}>Answer: {q.answer || "—"}</div>
           )}

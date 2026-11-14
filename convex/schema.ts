@@ -107,6 +107,8 @@ export default defineSchema({
     text: v.string(),
     answer: v.string(),
     points: v.number(),
+    // Multiple choice (round 4): `answer` is the text of the correct choice
+    choices: v.optional(v.array(v.string())),
   }).index("by_round_and_order", ["round", "order"]),
 
   quizRounds: defineTable({
