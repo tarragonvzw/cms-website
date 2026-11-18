@@ -1,5 +1,6 @@
 import { internalMutation, internalQuery, mutation, query, QueryCtx, MutationCtx } from "./_generated/server";
 import { v } from "convex/values";
+import { internal } from "./_generated/api";
 
 const MAX_QUESTIONS_PER_ROUND = 500;
 const MAX_SUBMISSIONS_PER_ROUND = 200;
@@ -534,6 +535,24 @@ export const setRoundOpenForControlServer = internalMutation({
   args: { round: v.number(), isOpen: v.boolean() },
   handler: async (ctx, args) => {
     await setOpen(ctx, args.round, args.isOpen);
+    return null;
+  },
+});
+
+// Deletes one batch of a round's submissions; reschedules itself until none are left.
+export const clearSubmissionsForControlServer = internalMutation({
+  args: { round: v.number() },
+  handler: async (ctx, args) => {
+    const batch = await ctx.db
+      .query("quizSubmissions")
+      .withIndex("by_round_and_teamKey", (q) => q.eq("round", args.round))
+      .take(100);
+    for (const submission of batch) await ctx.db.delete(submission._id);
+    if (batch.length === 100) {
+      await ctx.scheduler.runAfter(0, internal.quiz.clearSubmissionsForControlServer, {
+        round: args.round,
+      });
+    }
     return null;
   },
 });

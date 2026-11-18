@@ -67,4 +67,20 @@ http.route({
   }),
 });
 
+http.route({
+  path: "/quiz/submissions/clear",
+  method: "POST",
+  handler: httpAction(async (ctx, req) => {
+    const denied = unauthorized(req);
+    if (denied) return denied;
+    const body: unknown = await req.json().catch(() => null);
+    const round = (body as { round?: unknown } | null)?.round;
+    if (typeof round !== "number" || !Number.isInteger(round) || round < 1) {
+      return json({ error: "Expected { round: number }" }, 400);
+    }
+    await ctx.runMutation(internal.quiz.clearSubmissionsForControlServer, { round });
+    return json({ ok: true });
+  }),
+});
+
 export default http;
